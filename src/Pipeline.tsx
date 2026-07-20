@@ -1,21 +1,24 @@
 import React from "react";
-import { computeInsights, Deal, STAGES, stageIndex } from "./types";
+import { computeInsights, Deal, dealHealth, STAGES, stageIndex } from "./types";
 import { useStore } from "./store";
-import { AvatarStack, Badge, fmtMoney, relDays } from "./ui";
+import { AvatarStack, Badge, fmtMoney, HealthDot, relDays } from "./ui";
 
 function DealCard({ deal, onOpen }: { deal: Deal; onOpen: (id: string) => void }) {
   const { state } = useStore();
+  const now = new Date();
   const team = state.members.filter((m) => deal.teamIds.includes(m.id));
-  const insights = computeInsights(deal, new Date());
+  const insights = computeInsights(deal, now);
   const high = insights.filter((i) => i.severity === "high").length;
   const openTasks = deal.tasks.filter((t) => t.status !== "done").length;
-  const unresolved = deal.comments.filter((c) => !c.resolved).length;
   const close = relDays(deal.targetClose);
 
   return (
     <button className="deal-card" onClick={() => onOpen(deal.id)}>
       <div className="deal-card-top">
-        <span className="deal-codename">{deal.codename}</span>
+        <span className="deal-codename">
+          <HealthDot health={dealHealth(deal, now)} size={7} />
+          {deal.codename}
+        </span>
         <span className="deal-value">{fmtMoney(deal.valueM)}</span>
       </div>
       <div className="deal-card-name">{deal.name}</div>
@@ -27,10 +30,9 @@ function DealCard({ deal, onOpen }: { deal: Deal; onOpen: (id: string) => void }
       <div className="deal-card-bottom">
         <AvatarStack members={team} max={3} />
         <span className="deal-card-stats">
-          {openTasks > 0 && <span title="open tasks">☐ {openTasks}</span>}
-          {unresolved > 0 && <span title="unresolved comments">💬 {unresolved}</span>}
+          {openTasks > 0 && <span>{openTasks} open</span>}
           <span className={close.overdue ? "overdue" : ""} title="target close">
-            ⏱ {close.label}
+            {close.overdue ? close.label : `closes ${close.label}`}
           </span>
         </span>
       </div>

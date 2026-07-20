@@ -16,6 +16,7 @@ export function NewDealModal({ onClose, onCreated }: { onClose: () => void; onCr
     new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10)
   );
   const [summary, setSummary] = useState("");
+  const [useTemplate, setUseTemplate] = useState(true);
 
   const toggleTeam = (id: string) =>
     setTeamIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -39,6 +40,7 @@ export function NewDealModal({ onClose, onCreated }: { onClose: () => void; onCr
               summary: summary.trim() || "—",
             });
             dispatch({ type: "createDeal", deal });
+            if (useTemplate) dispatch({ type: "applyTemplate", dealId: deal.id });
             onCreated(deal.id);
           }}
         >
@@ -104,6 +106,10 @@ export function NewDealModal({ onClose, onCreated }: { onClose: () => void; onCr
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
             />
+          </label>
+          <label className="check template-check">
+            <input type="checkbox" checked={useTemplate} onChange={(e) => setUseTemplate(e.target.checked)} />
+            Start with the {type} playbook — stage-gated tasks assigned by role
           </label>
           <div className="modal-actions">
             <button type="button" className="btn" onClick={onClose}>

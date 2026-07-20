@@ -12,6 +12,7 @@ import {
   TaskStatus,
 } from "./types";
 import { SEED } from "./seed";
+import { ROLE_FALLBACK, STAGE_OFFSETS, TEMPLATES } from "./templates";
 
 const STORAGE_KEY = "dealos-state-v1";
 
@@ -22,6 +23,7 @@ type Action =
   | { type: "reset" }
   | { type: "advanceStage"; dealId: string }
   | { type: "createDeal"; deal: Deal }
+  | { type: "applyTemplate"; dealId: string }
   | { type: "addTask"; dealId: string; title: string; assigneeId: string; dueDate: string; blocking: boolean; requiresApproval: boolean }
   | { type: "setTaskStatus"; dealId: string; taskId: string; status: TaskStatus }
   | { type: "approveTask"; dealId: string; taskId: string }
@@ -61,6 +63,34 @@ function reducer(state: AppState, action: Action): AppState {
         if (blocked) return d;
         const next = STAGES[idx + 1].id as StageId;
         return log({ ...d, stageId: next }, me, `advanced the deal to ${STAGES[idx + 1].label}`);
+      });
+
+    case "applyTemplate":
+      return updateDeal(state, action.dealId, (d) => {
+        const template = TEMPLATES[d.type];
+        const team = state.members.filter((m) => d.teamIds.includes(m.id));
+        const created = new Date(d.createdAt).getTime();
+        const tasks: Task[] = template.map((t) => {
+          const assignee =
+            ROLE_FALLBACK[t.role].map((r) => team.find((m) => m.role === r)).find(Boolean) ??
+            state.members.find((m) => m.id === d.leadId)!;
+          const due = new Date(created + STAGE_OFFSETS[t.stageId] * 86400000);
+          return {
+            id: uid(),
+            title: t.title,
+            stageId: t.stageId,
+            assigneeId: assignee.id,
+            dueDate: due.toISOString().slice(0, 10),
+            status: "todo" as TaskStatus,
+            blocking: t.blocking,
+            requiresApproval: t.requiresApproval,
+          };
+        });
+        return log(
+          { ...d, tasks: [...d.tasks, ...tasks] },
+          me,
+          `applied the ${d.type} playbook (${tasks.length} tasks)`
+        );
       });
 
     case "addTask":

@@ -218,3 +218,19 @@ export function computeInsights(deal: Deal, now: Date): Insight[] {
   const order = { high: 0, medium: 1, low: 2 } as const;
   return insights.sort((a, b) => order[a.severity] - order[b.severity]);
 }
+
+export type Health = "green" | "amber" | "red";
+
+export function dealHealth(deal: Deal, now: Date): Health {
+  const insights = computeInsights(deal, now);
+  if (insights.some((i) => i.severity === "high")) return "red";
+  if (insights.some((i) => i.severity === "medium")) return "amber";
+  return "green";
+}
+
+/** Which workspace tab an insight should deep-link to. */
+export function insightTab(insightId: string): "checklist" | "documents" | "comments" {
+  if (insightId.startsWith("stale-") || insightId === "docs-in-review") return "documents";
+  if (insightId === "unresolved-comments") return "comments";
+  return "checklist";
+}

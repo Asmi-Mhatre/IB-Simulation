@@ -4,13 +4,26 @@ import {
   Deal,
   Doc,
   DocType,
+  insightTab,
   latestVersionDate,
   STAGES,
   stageIndex,
   Task,
 } from "./types";
 import { useStore } from "./store";
-import { Avatar, AvatarStack, Badge, fmtDate, fmtDateTime, fmtMoney, InsightCard, relDays } from "./ui";
+import {
+  Avatar,
+  AvatarStack,
+  Badge,
+  EmptyState,
+  fmtDate,
+  fmtDateTime,
+  fmtMoney,
+  InsightCard,
+  relDays,
+  RichText,
+  toast,
+} from "./ui";
 
 type Tab = "overview" | "checklist" | "documents" | "comments" | "activity";
 
@@ -69,7 +82,10 @@ function TaskRow({ deal, task }: { deal: Deal; task: Task }) {
             ) : task.status === "done" ? (
               <button
                 className="btn btn-mini"
-                onClick={() => dispatch({ type: "approveTask", dealId: deal.id, taskId: task.id })}
+                onClick={() => {
+                  dispatch({ type: "approveTask", dealId: deal.id, taskId: task.id });
+                  toast(`Approved: ${task.title}`);
+                }}
               >
                 Approve
               </button>
@@ -172,6 +188,7 @@ function DocCard({ deal, doc }: { deal: Deal; doc: Doc }) {
               e.preventDefault();
               if (!note.trim()) return;
               dispatch({ type: "addDocVersion", dealId: deal.id, docId: doc.id, note: note.trim() });
+              toast(`Published ${doc.name} v${latest.v + 1}`);
               setNote("");
             }}
           >
@@ -247,10 +264,18 @@ function AddDocForm({ deal }: { deal: Deal }) {
   );
 }
 
-export function Workspace({ dealId, onBack }: { dealId: string; onBack: () => void }) {
+export function Workspace({
+  dealId,
+  onBack,
+  initialTab,
+}: {
+  dealId: string;
+  onBack: () => void;
+  initialTab?: string;
+}) {
   const { state, dispatch } = useStore();
   const deal = state.deals.find((d) => d.id === dealId);
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>((initialTab as Tab) || "overview");
   const [commentText, setCommentText] = useState("");
   const [commentTarget, setCommentTarget] = useState("");
 
@@ -301,7 +326,10 @@ export function Workspace({ dealId, onBack }: { dealId: string; onBack: () => vo
                   ? `Blocked by: ${blockers.map((b) => b.title).join(", ")}`
                   : "Deal is at final stage"
             }
-            onClick={() => dispatch({ type: "advanceStage", dealId: deal.id })}
+            onClick={() => {
+              dispatch({ type: "advanceStage", dealId: deal.id });
+              toast(`${deal.codename} advanced to ${STAGES[idx + 1].label}`);
+            }}
           >
             {idx >= STAGES.length - 1 ? "Final stage" : `Advance to ${STAGES[idx + 1].short} →`}
           </button>
@@ -373,7 +401,9 @@ export function Workspace({ dealId, onBack }: { dealId: string; onBack: () => vo
             {insights.length === 0 ? (
               <p className="all-clear">✓ No issues detected. Everything is consistent and on track.</p>
             ) : (
-              insights.map((i) => <InsightCard key={i.id} insight={i} />)
+              insights.map((i) => (
+                <InsightCard key={i.id} insight={i} onClick={() => setTab(insightTab(i.id))} />
+              ))
             )}
           </section>
         </div>
@@ -381,18 +411,38 @@ export function Workspace({ dealId, onBack }: { dealId: string; onBack: () => vo
 
       {tab === "checklist" && (
         <section className="panel">
-          <AddTaskForm deal={deal} />
-          {STAGES.filter((s) => deal.tasks.some((t) => t.stageId === s.id)).map((s) => (
-            <div key={s.id}>
-              <h4 className="group-head">{s.label}</h4>
-              {deal.tasks
-                .filter((t) => t.stageId === s.id)
-                .map((t) => (
-                  <TaskRow key={t.id} deal={deal} task={t} />
-                ))}
-            </div>
-          ))}
-          {deal.tasks.length === 0 && <p className="subtle">No tasks yet.</p>}
+          {deal.tasks.length === 0 ? (
+            <EmptyState
+              icon="☑"
+              title="No tasks yet"
+              hint={`Start from the standard ${deal.type} playbook — stage-gated tasks, assigned by role, with due dates.`}
+              action={
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    dispatch({ type: "applyTemplate", dealId: deal.id });
+                    toast(`${deal.type} playbook applied`);
+                  }}
+                >
+                  Apply {deal.type} playbook
+                </button>
+              }
+            />
+          ) : (
+            <>
+              <AddTaskForm deal={deal} />
+              {STAGES.filter((s) => deal.tasks.some((t) => t.stageId === s.id)).map((s) => (
+                <div key={s.id}>
+                  <h4 className="group-head">{s.label}</h4>
+                  {deal.tasks
+                    .filter((t) => t.stageId === s.id)
+                    .map((t) => (
+                      <TaskRow key={t.id} deal={deal} task={t} />
+                    ))}
+                </div>
+              ))}
+            </>
+          )}
         </section>
       )}
 
@@ -402,7 +452,13 @@ export function Workspace({ dealId, onBack }: { dealId: string; onBack: () => vo
           {deal.docs.map((d) => (
             <DocCard key={d.id} deal={deal} doc={d} />
           ))}
-          {deal.docs.length === 0 && <p className="subtle">No documents yet.</p>}
+          {deal.docs.length === 0 && (
+            <EmptyState
+              icon="▤"
+              title="No documents yet"
+              hint="Add the model, deck, or legal doc the team is working from. Declare dependencies so stale versions get flagged automatically."
+            />
+          )}
         </section>
       )}
 
@@ -422,7 +478,11 @@ export function Workspace({ dealId, onBack }: { dealId: string; onBack: () => vo
               setCommentText("");
             }}
           >
-            <input placeholder="Add a comment…" value={commentText} onChange={(e) => setCommentText(e.target.value)} />
+            <input
+              placeholder="Add a comment… (@name to mention)"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+            />
             <select value={commentTarget} onChange={(e) => setCommentTarget(e.target.value)}>
               <option value="">General</option>
               {deal.docs.map((d) => (
@@ -447,7 +507,9 @@ export function Workspace({ dealId, onBack }: { dealId: string; onBack: () => vo
                       on {c.target} · {fmtDateTime(c.createdAt)}
                     </span>
                   </div>
-                  <div className="comment-text">{c.text}</div>
+                  <div className="comment-text">
+                    <RichText text={c.text} members={state.members} />
+                  </div>
                 </div>
                 <button
                   className="btn btn-mini"
@@ -458,7 +520,13 @@ export function Workspace({ dealId, onBack }: { dealId: string; onBack: () => vo
               </div>
             );
           })}
-          {deal.comments.length === 0 && <p className="subtle">No comments yet.</p>}
+          {deal.comments.length === 0 && (
+            <EmptyState
+              icon="◗"
+              title="No comments yet"
+              hint="Feedback lives here instead of email threads — every comment tracks resolution, so nothing gets dropped."
+            />
+          )}
         </section>
       )}
 
