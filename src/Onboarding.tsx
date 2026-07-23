@@ -1,4 +1,57 @@
-import React from "react";
+import React, { useState } from "react";
+import { Role } from "./types";
+
+const ROLES: Role[] = ["MD", "Director", "VP", "Associate", "Analyst", "Legal"];
+
+/* ---------- Identity setup (for a fresh, personal workspace) ---------- */
+
+export function IdentitySetup({
+  onCreate,
+  onCancel,
+}: {
+  onCreate: (name: string, role: Role) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState<Role>("Associate");
+  const submit = () => name.trim() && onCreate(name.trim(), role);
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal identity-modal" onClick={(e) => e.stopPropagation()}>
+        <h2>Set up your workspace</h2>
+        <p className="subtle">
+          Deloquer runs entirely in your browser — there's no account to create. Just tell us who
+          <strong> you</strong> are. You'll be the first member of your team, and you can add the
+          rest (and assign them to deals) from the Team page.
+        </p>
+        <label className="field-label">Your name</label>
+        <input
+          autoFocus
+          value={name}
+          placeholder="e.g. Asmi Mhatre"
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+        />
+        <label className="field-label">Your role</label>
+        <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+        <div className="modal-actions">
+          <button className="btn" onClick={onCancel}>
+            Back
+          </button>
+          <button className="btn btn-primary" disabled={!name.trim()} onClick={submit}>
+            Create my workspace →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ---------- First-visit welcome hero ---------- */
 

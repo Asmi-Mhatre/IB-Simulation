@@ -66,6 +66,7 @@ export function stageInUse(state: AppState, stageId: string): boolean {
 type Action =
   | { type: "reset" }
   | { type: "startBlank" }
+  | { type: "startFresh"; name: string; role: Role }
   | { type: "advanceStage"; dealId: string }
   | { type: "overrideStage"; dealId: string; reason: string }
   | { type: "createDeal"; deal: Deal }
@@ -110,6 +111,25 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "startBlank":
       return EMPTY;
+
+    case "startFresh": {
+      // A real, personal workspace: no deals, no demo cast — just you.
+      const name = action.name.trim();
+      if (!name) return state;
+      const meMember: Member = {
+        id: uid(),
+        name,
+        initials: initialsFrom(name),
+        role: action.role,
+        color: MEMBER_COLORS[0],
+      };
+      return {
+        deals: [],
+        members: [meMember],
+        currentUserId: meMember.id,
+        stages: SEED.stages.map((s) => ({ ...s })),
+      };
+    }
 
     case "createDeal":
       // New deals always start at the workspace's first stage.

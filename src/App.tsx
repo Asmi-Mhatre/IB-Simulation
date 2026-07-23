@@ -6,7 +6,7 @@ import { NewDealModal } from "./NewDealModal";
 import { MyWork } from "./MyWork";
 import { Team } from "./Team";
 import { CommandPalette, usePaletteCommands } from "./CommandPalette";
-import { Tour, TourStep, Welcome } from "./Onboarding";
+import { IdentitySetup, Tour, TourStep, Welcome } from "./Onboarding";
 import { Avatar, HealthDot, Toaster, toast } from "./ui";
 import { dealHealth } from "./types";
 
@@ -26,6 +26,7 @@ function Shell() {
   const [showPalette, setShowPalette] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showIdentity, setShowIdentity] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(
     () => (localStorage.getItem(THEME_KEY) as "light" | "dark") || "light"
   );
@@ -262,14 +263,25 @@ function Shell() {
             finishOnboarding();
           }}
           onStartBlank={() => {
-            // The button is explicit ("start with an empty workspace"); no native
-            // confirm() here — it wedges the embedded browser. "Clear all deals" in
-            // the sidebar is the guarded two-click path for an existing workspace.
-            dispatch({ type: "startBlank" });
-            setView({ kind: "pipeline" });
+            // A fresh workspace asks who you are first, so you're not "Ananya"
+            // and new deals draw from your own team — not the demo roster.
             setShowWelcome(false);
+            setShowIdentity(true);
+          }}
+        />
+      )}
+      {showIdentity && (
+        <IdentitySetup
+          onCreate={(name, role) => {
+            dispatch({ type: "startFresh", name, role });
+            setShowIdentity(false);
             finishOnboarding();
+            setView({ kind: "pipeline" });
             setShowNewDeal(true);
+          }}
+          onCancel={() => {
+            setShowIdentity(false);
+            setShowWelcome(true);
           }}
         />
       )}

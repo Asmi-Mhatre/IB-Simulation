@@ -263,6 +263,11 @@ h1 { font-size: 21px; font-weight: 700; }
 .stage-mgr-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .stage-mgr-add { margin-bottom: 4px; }
 
+/* ---------- Identity setup ---------- */
+.field-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin: 12px 0 4px; }
+.identity-modal { max-width: 440px; width: 100%; }
+.identity-modal input, .identity-modal select { width: 100%; }
+
 input, select, textarea {
   font-family: inherit;
   font-size: 13px;
