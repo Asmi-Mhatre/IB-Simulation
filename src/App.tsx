@@ -4,12 +4,17 @@ import { Pipeline } from "./Pipeline";
 import { Workspace } from "./Workspace";
 import { NewDealModal } from "./NewDealModal";
 import { MyWork } from "./MyWork";
+import { Team } from "./Team";
 import { CommandPalette, usePaletteCommands } from "./CommandPalette";
 import { Tour, TourStep, Welcome } from "./Onboarding";
 import { Avatar, HealthDot, Toaster, toast } from "./ui";
 import { dealHealth } from "./types";
 
-type View = { kind: "pipeline" } | { kind: "mywork" } | { kind: "deal"; dealId: string; tab?: string };
+type View =
+  | { kind: "pipeline" }
+  | { kind: "mywork" }
+  | { kind: "team" }
+  | { kind: "deal"; dealId: string; tab?: string };
 
 const THEME_KEY = "dealos-theme";
 const ONBOARDED_KEY = "dealos-onboarded";
@@ -136,6 +141,12 @@ function Shell() {
           >
             Pipeline
           </button>
+          <button
+            className={`nav-item ${view.kind === "team" ? "active" : ""}`}
+            onClick={() => setView({ kind: "team" })}
+          >
+            Team
+          </button>
           <div className="nav-section">Live deals</div>
           {state.deals.map((d) => (
             <button
@@ -153,11 +164,17 @@ function Shell() {
         </nav>
         <div className="sidebar-footer">
           <div className="me">
-            <Avatar member={me} size={30} />
-            <div>
-              <div className="me-name">{me.name}</div>
-              <div className="me-role">{me.role}</div>
-            </div>
+            <button
+              className="me-identity"
+              title="Manage team / switch who you're acting as"
+              onClick={() => setView({ kind: "team" })}
+            >
+              <Avatar member={me} size={30} />
+              <div>
+                <div className="me-name">{me.name}</div>
+                <div className="me-role">{me.role} · switch</div>
+              </div>
+            </button>
             <button
               className="theme-toggle"
               title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
@@ -216,6 +233,8 @@ function Shell() {
           />
         ) : view.kind === "mywork" ? (
           <MyWork onOpen={openDeal} />
+        ) : view.kind === "team" ? (
+          <Team />
         ) : (
           <Pipeline onOpen={openDeal} onNewDeal={() => setShowNewDeal(true)} />
         )}

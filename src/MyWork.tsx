@@ -64,7 +64,14 @@ export function MyWork({ onOpen }: { onOpen: (dealId: string, tab?: string) => v
 
   const pendingSignoffs = state.deals.flatMap((deal) =>
     deal.tasks
-      .filter((t) => t.status === "done" && t.requiresApproval && !t.approvedById)
+      // Only sign-offs I can actually give — not my own work (separation of duties).
+      .filter(
+        (t) =>
+          t.status === "done" &&
+          t.requiresApproval &&
+          !t.approvedById &&
+          t.assigneeId !== me.id
+      )
       .map((task) => ({ deal, task }))
   );
 

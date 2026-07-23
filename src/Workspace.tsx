@@ -78,17 +78,34 @@ function TaskRow({ deal, task }: { deal: Deal; task: Task }) {
           {task.status === "in_progress" && <Badge kind="progress">in progress</Badge>}
           {task.requiresApproval &&
             (approver ? (
-              <span className="approved">✓ approved by {approver.name.split(" ")[0]}</span>
+              <span className="approved">
+                ✓ approved by {approver.name.split(" ")[0]}
+                {task.approvedById === state.currentUserId && (
+                  <button
+                    className="btn-link revoke-link"
+                    title="Withdraw your sign-off"
+                    onClick={() => dispatch({ type: "revokeApproval", dealId: deal.id, taskId: task.id })}
+                  >
+                    withdraw
+                  </button>
+                )}
+              </span>
             ) : task.status === "done" ? (
-              <button
-                className="btn btn-mini"
-                onClick={() => {
-                  dispatch({ type: "approveTask", dealId: deal.id, taskId: task.id });
-                  toast(`Approved: ${task.title}`);
-                }}
-              >
-                Approve
-              </button>
+              task.assigneeId === state.currentUserId ? (
+                <span className="subtle" title="Separation of duties — someone else must sign this off">
+                  awaiting another's sign-off
+                </span>
+              ) : (
+                <button
+                  className="btn btn-mini"
+                  onClick={() => {
+                    dispatch({ type: "approveTask", dealId: deal.id, taskId: task.id });
+                    toast(`Approved: ${task.title}`);
+                  }}
+                >
+                  Approve
+                </button>
+              )
             ) : (
               <span className="subtle">needs sign-off</span>
             ))}

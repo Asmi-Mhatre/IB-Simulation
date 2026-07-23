@@ -6,6 +6,8 @@ import {
   Doc,
   DocType,
   GateOverride,
+  Member,
+  Role,
   StageId,
   STAGES,
   stageIndex,
@@ -30,6 +32,27 @@ export const EMPTY: AppState = {
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const nowIso = () => new Date().toISOString();
 
+const MEMBER_COLORS = [
+  "#7c5cff", "#2f9e8f", "#d97706", "#3b82f6", "#db2777",
+  "#64748b", "#0ea5e9", "#e11d48", "#16a34a", "#9333ea",
+];
+/** Two-letter initials from a name, e.g. "Neha Kapoor" -> "NK". */
+export function initialsFrom(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+/** True if a member is referenced anywhere and therefore can't be safely removed. */
+export function memberInUse(state: AppState, memberId: string): boolean {
+  return state.deals.some(
+    (d) =>
+      d.leadId === memberId ||
+      d.teamIds.includes(memberId) ||
+      d.tasks.some((t) => t.assigneeId === memberId || t.approvedById === memberId)
+  );
+}
+
 type Action =
   | { type: "reset" }
   | { type: "startBlank" }
@@ -40,11 +63,16 @@ type Action =
   | { type: "addTask"; dealId: string; title: string; assigneeId: string; dueDate: string; blocking: boolean; requiresApproval: boolean }
   | { type: "setTaskStatus"; dealId: string; taskId: string; status: TaskStatus }
   | { type: "approveTask"; dealId: string; taskId: string }
+  | { type: "revokeApproval"; dealId: string; taskId: string }
   | { type: "addDoc"; dealId: string; name: string; docType: DocType; note: string; dependsOn: string[] }
   | { type: "addDocVersion"; dealId: string; docId: string; note: string }
   | { type: "setDocStatus"; dealId: string; docId: string; status: Doc["status"] }
   | { type: "addComment"; dealId: string; text: string; target: string }
-  | { type: "toggleComment"; dealId: string; commentId: string };
+  | { type: "toggleComment"; dealId: string; commentId: string }
+  | { type: "addMember"; name: string; role: Role }
+  | { type: "updateMember"; memberId: string; name: string; role: Role }
+  | { type: "removeMember"; memberId: string }
+  | { type: "setCurrentUser"; memberId: string };
 
 function log(deal: Deal, actorId: string, text: string): Deal {
   return {
@@ -182,10 +210,27 @@ function reducer(state: AppState, action: Action): AppState {
       return updateDeal(state, action.dealId, (d) => {
         const t = d.tasks.find((x) => x.id === action.taskId);
         if (!t) return d;
+        // Separation of duties: you cannot approve your own work, and an
+        // existing sign-off can't be silently overwritten by someone else.
+        if (t.assigneeId === me) return d;
+        if (t.approvedById) return d;
         const tasks = d.tasks.map((x) =>
           x.id === action.taskId ? { ...x, approvedById: me } : x
         );
         return log({ ...d, tasks }, me, `approved "${t.title}"`);
+      });
+
+    case "revokeApproval":
+      return updateDeal(state, action.dealId, (d) => {
+        const t = d.tasks.find((x) => x.id === action.taskId);
+        if (!t || !t.approvedById) return d;
+        // Only the person who signed off can withdraw their own sign-off —
+        // one person cannot change another's approval.
+        if (t.approvedById !== me) return d;
+        const tasks = d.tasks.map((x) =>
+          x.id === action.taskId ? { ...x, approvedById: undefined } : x
+        );
+        return log({ ...d, tasks }, me, `withdrew sign-off on "${t.title}"`);
       });
 
     case "addDoc":
@@ -245,6 +290,47 @@ function reducer(state: AppState, action: Action): AppState {
           c.id === action.commentId ? { ...c, resolved: !c.resolved } : c
         ),
       }));
+
+    case "addMember": {
+      const name = action.name.trim();
+      if (!name) return state;
+      const member: Member = {
+        id: uid(),
+        name,
+        initials: initialsFrom(name),
+        role: action.role,
+        color: MEMBER_COLORS[state.members.length % MEMBER_COLORS.length],
+      };
+      return { ...state, members: [...state.members, member] };
+    }
+
+    case "updateMember": {
+      const name = action.name.trim();
+      if (!name) return state;
+      return {
+        ...state,
+        members: state.members.map((m) =>
+          m.id === action.memberId
+            ? { ...m, name, initials: initialsFrom(name), role: action.role }
+            : m
+        ),
+      };
+    }
+
+    case "removeMember": {
+      // Guard: don't remove someone still referenced by a deal or task.
+      if (memberInUse(state, action.memberId)) return state;
+      if (state.members.length <= 1) return state; // keep at least one person
+      const members = state.members.filter((m) => m.id !== action.memberId);
+      const currentUserId =
+        state.currentUserId === action.memberId ? members[0].id : state.currentUserId;
+      return { ...state, members, currentUserId };
+    }
+
+    case "setCurrentUser":
+      return state.members.some((m) => m.id === action.memberId)
+        ? { ...state, currentUserId: action.memberId }
+        : state;
 
     default:
       return state;
