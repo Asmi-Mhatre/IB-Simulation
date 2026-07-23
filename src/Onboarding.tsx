@@ -2,7 +2,15 @@ import React from "react";
 
 /* ---------- First-visit welcome hero ---------- */
 
-export function Welcome({ onStartTour, onSkip }: { onStartTour: () => void; onSkip: () => void }) {
+export function Welcome({
+  onStartTour,
+  onSkip,
+  onStartBlank,
+}: {
+  onStartTour: () => void;
+  onSkip: () => void;
+  onStartBlank: () => void;
+}) {
   return (
     <div className="welcome-overlay">
       <div className="w-orb w-orb-1" />
@@ -37,11 +45,15 @@ export function Welcome({ onStartTour, onSkip }: { onStartTour: () => void; onSk
             Take the 60-second tour →
           </button>
           <button className="w-btn-ghost" onClick={onSkip}>
-            Jump straight in
+            Explore with sample deals
           </button>
         </div>
+        <button className="w-btn-text w-anim" style={{ animationDelay: "0.62s" }} onClick={onStartBlank}>
+          or start with an empty workspace →
+        </button>
         <p className="w-hint w-anim" style={{ animationDelay: "0.7s" }}>
-          Loaded with 5 demo deals · your changes stay in your browser
+          Sample deals let you look around · start empty to run your own · everything stays in your
+          browser
         </p>
       </div>
     </div>

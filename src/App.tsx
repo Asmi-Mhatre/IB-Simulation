@@ -20,6 +20,7 @@ function Shell() {
   const [showNewDeal, setShowNewDeal] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(
     () => (localStorage.getItem(THEME_KEY) as "light" | "dark") || "light"
   );
@@ -184,6 +185,22 @@ function Shell() {
           >
             {confirmReset ? "Click again to confirm reset" : "Reset demo data"}
           </button>
+          <button
+            className="btn-link subtle"
+            onClick={() => {
+              if (confirmClear) {
+                dispatch({ type: "startBlank" });
+                setView({ kind: "pipeline" });
+                setConfirmClear(false);
+                toast("Workspace cleared — start your own deals");
+              } else {
+                setConfirmClear(true);
+                setTimeout(() => setConfirmClear(false), 4000);
+              }
+            }}
+          >
+            {confirmClear ? "Click again to clear everything" : "Clear all deals"}
+          </button>
         </div>
       </aside>
       <main className="main">
@@ -220,6 +237,13 @@ function Shell() {
           onSkip={() => {
             setShowWelcome(false);
             finishOnboarding();
+          }}
+          onStartBlank={() => {
+            dispatch({ type: "startBlank" });
+            setView({ kind: "pipeline" });
+            setShowWelcome(false);
+            finishOnboarding();
+            setShowNewDeal(true);
           }}
         />
       )}

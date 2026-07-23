@@ -1,7 +1,7 @@
 import React from "react";
 import { computeInsights, Deal, dealHealth, STAGES, stageIndex } from "./types";
 import { useStore } from "./store";
-import { AvatarStack, Badge, fmtMoney, HealthDot, relDays } from "./ui";
+import { AvatarStack, Badge, EmptyState, fmtMoney, HealthDot, relDays } from "./ui";
 
 function DealCard({ deal, onOpen }: { deal: Deal; onOpen: (id: string) => void }) {
   const { state } = useStore();
@@ -57,7 +57,19 @@ export function Pipeline({ onOpen, onNewDeal }: { onOpen: (id: string) => void; 
           + New Deal
         </button>
       </div>
-      <div className="board">
+      {state.deals.length === 0 ? (
+        <EmptyState
+          icon="◆"
+          title="No deals yet"
+          hint="This is your empty workspace. Create your first mandate to start tracking it through the eight stages — gates, approvals, versioned documents and all."
+          action={
+            <button className="btn btn-primary" onClick={onNewDeal}>
+              + Create your first deal
+            </button>
+          }
+        />
+      ) : (
+        <div className="board">
         {STAGES.map((stage, i) => {
           const deals = state.deals.filter((d) => d.stageId === stage.id);
           return (
@@ -77,8 +89,9 @@ export function Pipeline({ onOpen, onNewDeal }: { onOpen: (id: string) => void; 
               </div>
             </div>
           );
-        })}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }

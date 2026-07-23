@@ -81,6 +81,8 @@ flowchart LR
     style D fill:#e6f4ef,color:#158060
 ```
 
+**🔓 Break glass — because real deals don't wait.** When a client demands an updated model in 30 minutes and the MD is on a flight, a hard gate that can't be overridden gets abandoned on night one. So DealOS lets anyone advance past an open gate — but only with a **mandatory typed reason**, recorded against their name with the exact tasks they skipped. The override then stays a **high-severity flag in Deal Review until that skipped work is actually completed**. The escape hatch exists; it just can't be quiet. *(The audit trail is the product.)*
+
 ---
 
 ## 📄 Documents that know when they're stale
@@ -132,14 +134,30 @@ The bet: AI should **quietly review the deal in the background** — not sit in 
 
 ---
 
-## 🚀 Quick start
+## 🚀 Try it / run it
+
+**Live demo:** [asmi-mhatre.github.io/IB-Simulation](https://asmi-mhatre.github.io/IB-Simulation/) — no install, runs entirely in your browser.
+
+**Run locally:**
 
 ```bash
 npm install
 npm run dev        # → http://localhost:5173
 ```
 
-Ships with **5 realistic seeded deals** (sell-side renewables, buy-side consumer, hospital capital raise, logistics deal in final negotiation, fresh mandate). Dates are generated relative to today, so the demo always looks live. Data lives in localStorage — **Reset demo data** (sidebar, click twice) restores the seed.
+**Build a static bundle** you can host anywhere (or serve yourself, air-gapped):
+
+```bash
+npm run build      # → dist/  (static HTML/CSS/JS, no server needed)
+npm run preview    # serve the built bundle locally to check it
+```
+
+On first run you choose your starting point:
+
+- **Explore with sample deals** — 5 realistic seeded deals (sell-side renewables, buy-side consumer, hospital capital raise, logistics deal in final negotiation, fresh mandate) with dates generated relative to today, so the demo always looks live.
+- **Start with an empty workspace** — no deals, just the team roster, ready for your own mandates.
+
+Data lives in your browser's localStorage. From the sidebar you can **Reset demo data** or **Clear all deals** (each click-twice to confirm) at any time.
 
 ---
 
@@ -157,13 +175,23 @@ flowchart LR
 |---|---|
 | [`src/types.ts`](src/types.ts) | Domain model **+ Deal Review rules engine** |
 | [`src/seed.ts`](src/seed.ts) | 5 demo deals, relative dates |
-| [`src/store.tsx`](src/store.tsx) | Reducer + persistence; mutations auto-log to activity feed |
-| [`src/Pipeline.tsx`](src/Pipeline.tsx) | Kanban board across the 8 stages |
-| [`src/Workspace.tsx`](src/Workspace.tsx) | Per-deal workspace (5 tabs) |
+| [`src/store.tsx`](src/store.tsx) | Reducer + persistence; mutations auto-log to activity feed; sample / empty / break-glass actions |
+| [`src/Pipeline.tsx`](src/Pipeline.tsx) | Kanban board across the 8 stages (+ empty-workspace state) |
+| [`src/Workspace.tsx`](src/Workspace.tsx) | Per-deal workspace (5 tabs) + break-glass gate override |
 | [`src/NewDealModal.tsx`](src/NewDealModal.tsx) | Deal creation |
 | [`src/App.tsx`](src/App.tsx) | Shell + navigation |
 
 > **Why no backend?** Deliberately zero-infrastructure: clone, `npm install`, and you have the full product running in 30 seconds — no database, no docker-compose, no signup. The reducer is already shaped like an event log, so multi-user sync (server API / CRDTs) slots in without a rewrite when the project gets there.
+
+---
+
+## 🌐 Deploy
+
+The app is a static bundle, so it hosts anywhere.
+
+- **GitHub Pages (automatic):** every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which builds and publishes to Pages. First time only: in the repo, go to **Settings → Pages → Build and deployment → Source → GitHub Actions**. After that it's hands-off; the live URL above updates on every push.
+- **Any static host** (Netlify, Vercel, S3, nginx): run `npm run build` and serve the `dist/` folder. For a bank, this is the air-gapped path — the whole product is static files inside your own perimeter, no data leaving.
+- The production build is served from the `/IB-Simulation/` sub-path (set in [`vite.config.ts`](vite.config.ts)). Hosting at a domain root instead? Change `base` to `"/"`.
 
 ---
 

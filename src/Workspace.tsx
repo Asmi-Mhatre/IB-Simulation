@@ -278,6 +278,8 @@ export function Workspace({
   const [tab, setTab] = useState<Tab>((initialTab as Tab) || "overview");
   const [commentText, setCommentText] = useState("");
   const [commentTarget, setCommentTarget] = useState("");
+  const [breakGlass, setBreakGlass] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
 
   const insights = useMemo(() => (deal ? computeInsights(deal, new Date()) : []), [deal]);
   if (!deal) return null;
@@ -333,6 +335,18 @@ export function Workspace({
           >
             {idx >= STAGES.length - 1 ? "Final stage" : `Advance to ${STAGES[idx + 1].short} →`}
           </button>
+          {blockers.length > 0 && idx < STAGES.length - 1 && (
+            <button
+              className="btn btn-breakglass"
+              title="Advance anyway, past the open gate — logged with a mandatory reason"
+              onClick={() => {
+                setOverrideReason("");
+                setBreakGlass(true);
+              }}
+            >
+              🔓 Break glass
+            </button>
+          )}
         </div>
       </div>
 
@@ -341,7 +355,55 @@ export function Workspace({
       {blockers.length > 0 && (
         <div className="gate-banner">
           🔒 Stage gate: {blockers.length} blocking task{blockers.length > 1 ? "s" : ""} must be
-          completed before advancing — {blockers.map((b) => `"${b.title}"`).join(", ")}
+          completed before advancing — {blockers.map((b) => `"${b.title}"`).join(", ")}.{" "}
+          <span className="gate-banner-note">
+            Under time pressure you can <strong>Break glass</strong> to advance anyway — it's logged
+            and stays flagged until this work is done.
+          </span>
+        </div>
+      )}
+
+      {breakGlass && (
+        <div className="modal-overlay" onClick={() => setBreakGlass(false)}>
+          <div className="modal breakglass-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>🔓 Break glass — override stage gate</h2>
+            <p className="subtle">
+              You're advancing <strong>{deal.name}</strong> from{" "}
+              <strong>{STAGES[idx].label}</strong> to{" "}
+              <strong>{STAGES[idx + 1]?.label}</strong> past {blockers.length} unfinished gate task
+              {blockers.length > 1 ? "s" : ""}. This is recorded against your name and stays flagged
+              in Deal Review until the skipped work is completed.
+            </p>
+            <ul className="breakglass-skiplist">
+              {blockers.map((b) => (
+                <li key={b.id}>{b.title}</li>
+              ))}
+            </ul>
+            <label className="field-label">Reason (required)</label>
+            <textarea
+              rows={3}
+              autoFocus
+              placeholder="e.g. Client demanded revised model in 30 min; MD unreachable in transit. Escalated to Rohan by phone."
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+            />
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setBreakGlass(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-breakglass"
+                disabled={!overrideReason.trim()}
+                onClick={() => {
+                  dispatch({ type: "overrideStage", dealId: deal.id, reason: overrideReason });
+                  toast(`${deal.codename}: gate overridden → ${STAGES[idx + 1].label}`);
+                  setBreakGlass(false);
+                }}
+              >
+                Override & advance
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -535,9 +597,10 @@ export function Workspace({
           {[...deal.activity].reverse().map((a) => {
             const actor = state.members.find((m) => m.id === a.actorId);
             return (
-              <div key={a.id} className="activity-row">
+              <div key={a.id} className={`activity-row ${a.kind === "override" ? "activity-override" : ""}`}>
                 {actor && <Avatar member={actor} size={22} />}
                 <span>
+                  {a.kind === "override" && <span className="activity-badge">OVERRIDE</span>}
                   <strong>{actor?.name}</strong> {a.text}
                 </span>
                 <span className="subtle activity-ts">{fmtDateTime(a.ts)}</span>

@@ -87,6 +87,26 @@ export interface ActivityEvent {
   ts: string; // ISO datetime
   actorId: string;
   text: string;
+  /** "override" marks a break-glass event so the feed can render it prominently */
+  kind?: "override";
+}
+
+/**
+ * A "break glass" record: someone advanced a deal past its stage gate while
+ * blocking tasks were still open. The reason is mandatory and the skipped tasks
+ * are captured by value, so the audit survives even if the tasks are later
+ * edited or deleted. This record is the durable audit anchor for the override.
+ */
+export interface GateOverride {
+  id: string;
+  ts: string; // ISO datetime
+  actorId: string;
+  actorRole: Role;
+  fromStage: StageId;
+  toStage: StageId;
+  reason: string;
+  skippedTaskIds: string[];
+  skippedTaskTitles: string[];
 }
 
 export type DealType = "Sell-side M&A" | "Buy-side M&A" | "Capital Raise" | "Restructuring";
@@ -108,6 +128,8 @@ export interface Deal {
   docs: Doc[];
   comments: Comment[];
   activity: ActivityEvent[];
+  /** break-glass gate overrides — optional so state persisted before this feature still loads */
+  overrides?: GateOverride[];
 }
 
 export interface AppState {
@@ -215,6 +237,29 @@ export function computeInsights(deal: Deal, now: Date): Insight[] {
     });
   }
 
+  // 7. Break-glass overrides whose skipped gate tasks are still not done.
+  // The override stays flagged (high severity) until the work it bypassed is
+  // actually completed — so a force-advance can't be quietly forgotten.
+  for (const o of deal.overrides ?? []) {
+    const stillOpen = o.skippedTaskIds.filter((id) => {
+      const t = deal.tasks.find((x) => x.id === id);
+      // if the task was deleted we can no longer confirm it's done — keep flagging
+      return !t || t.status !== "done";
+    });
+    if (stillOpen.length === 0) continue;
+    insights.push({
+      id: `override-${o.id}`,
+      severity: "high",
+      title: `Gate overridden — ${stillOpen.length} skipped task${stillOpen.length > 1 ? "s" : ""} still open`,
+      detail: `${o.actorRole} force-advanced ${STAGES[stageIndex(o.fromStage)].label} → ${
+        STAGES[stageIndex(o.toStage)].label
+      } past ${o.skippedTaskIds.length} gate task${o.skippedTaskIds.length > 1 ? "s" : ""}. Reason: "${o.reason}". Still open: ${o.skippedTaskTitles
+        .filter((_, i) => stillOpen.includes(o.skippedTaskIds[i]))
+        .map((t) => `"${t}"`)
+        .join(", ")}.`,
+    });
+  }
+
   const order = { high: 0, medium: 1, low: 2 } as const;
   return insights.sort((a, b) => order[a.severity] - order[b.severity]);
 }
@@ -232,5 +277,6 @@ export function dealHealth(deal: Deal, now: Date): Health {
 export function insightTab(insightId: string): "checklist" | "documents" | "comments" {
   if (insightId.startsWith("stale-") || insightId === "docs-in-review") return "documents";
   if (insightId === "unresolved-comments") return "comments";
+  // override-* deep-links to the checklist so the skipped tasks can be finished
   return "checklist";
 }

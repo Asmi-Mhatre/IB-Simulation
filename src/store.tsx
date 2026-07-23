@@ -5,6 +5,7 @@ import {
   DealType,
   Doc,
   DocType,
+  GateOverride,
   StageId,
   STAGES,
   stageIndex,
@@ -16,12 +17,24 @@ import { ROLE_FALLBACK, STAGE_OFFSETS, TEMPLATES } from "./templates";
 
 const STORAGE_KEY = "dealos-state-v1";
 
+/**
+ * An empty workspace: no deals, but the team roster is kept so new deals have
+ * people to assign. This is what a real team starts from instead of the demo.
+ */
+export const EMPTY: AppState = {
+  deals: [],
+  members: SEED.members,
+  currentUserId: SEED.currentUserId,
+};
+
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const nowIso = () => new Date().toISOString();
 
 type Action =
   | { type: "reset" }
+  | { type: "startBlank" }
   | { type: "advanceStage"; dealId: string }
+  | { type: "overrideStage"; dealId: string; reason: string }
   | { type: "createDeal"; deal: Deal }
   | { type: "applyTemplate"; dealId: string }
   | { type: "addTask"; dealId: string; title: string; assigneeId: string; dueDate: string; blocking: boolean; requiresApproval: boolean }
@@ -50,6 +63,9 @@ function reducer(state: AppState, action: Action): AppState {
     case "reset":
       return SEED;
 
+    case "startBlank":
+      return EMPTY;
+
     case "createDeal":
       return { ...state, deals: [action.deal, ...state.deals] };
 
@@ -63,6 +79,50 @@ function reducer(state: AppState, action: Action): AppState {
         if (blocked) return d;
         const next = STAGES[idx + 1].id as StageId;
         return log({ ...d, stageId: next }, me, `advanced the deal to ${STAGES[idx + 1].label}`);
+      });
+
+    case "overrideStage":
+      return updateDeal(state, action.dealId, (d) => {
+        const idx = stageIndex(d.stageId);
+        if (idx >= STAGES.length - 1) return d;
+        const reason = action.reason.trim();
+        if (!reason) return d; // a reason is mandatory — no silent overrides
+        const skipped = d.tasks.filter(
+          (t) => t.stageId === d.stageId && t.blocking && t.status !== "done"
+        );
+        if (skipped.length === 0) return d; // nothing to break glass over
+        const actor = state.members.find((m) => m.id === me);
+        const from = d.stageId;
+        const to = STAGES[idx + 1].id as StageId;
+        const override: GateOverride = {
+          id: uid(),
+          ts: nowIso(),
+          actorId: me,
+          actorRole: actor?.role ?? "Analyst",
+          fromStage: from,
+          toStage: to,
+          reason,
+          skippedTaskIds: skipped.map((t) => t.id),
+          skippedTaskTitles: skipped.map((t) => t.title),
+        };
+        const advanced: Deal = {
+          ...d,
+          stageId: to,
+          overrides: [...(d.overrides ?? []), override],
+          activity: [
+            ...d.activity,
+            {
+              id: uid(),
+              ts: nowIso(),
+              actorId: me,
+              kind: "override",
+              text: `broke glass to advance to ${STAGES[idx + 1].label}, skipping ${skipped.length} gate task${
+                skipped.length > 1 ? "s" : ""
+              } — "${reason}"`,
+            },
+          ],
+        };
+        return advanced;
       });
 
     case "applyTemplate":
@@ -209,6 +269,7 @@ export function makeDeal(input: {
     tasks: [],
     docs: [],
     comments: [],
+    overrides: [],
     activity: [{ id: uid(), ts: nowIso(), actorId: input.leadId, text: "created the deal" }],
     ...input,
   };
