@@ -62,6 +62,8 @@ body {
   padding: 0 8px 18px;
 }
 .logo-mark { color: #6d8bff; margin-right: 4px; }
+.logo-btn { background: none; border: none; font-family: inherit; text-align: left; cursor: pointer; display: block; width: 100%; }
+.logo-btn:hover { color: #dfe6ff; }
 .sidebar nav { flex: 1; overflow-y: auto; }
 .nav-item {
   display: flex;

@@ -1,10 +1,10 @@
 <div align="center">
 
-# ◆ DealOS
+# ◆ Deloquer
 
 ### The open-source operating system for deal execution
 
-**GitHub became where software gets built. Figma became where design happens.<br>DealOS is where deals get done.**
+**GitHub became where software gets built. Figma became where design happens.<br>Deloquer is where deals get done.**
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
@@ -30,7 +30,7 @@ flowchart LR
         X3 -.->|"who has the<br>latest file?"| X1
     end
 
-    subgraph DEALOS["◆ DealOS"]
+    subgraph DEALOS["◆ Deloquer"]
         direction TB
         Y1["One workspace"]
         Y2["Versioned docs that<br>flag themselves stale"]
@@ -81,7 +81,7 @@ flowchart LR
     style D fill:#e6f4ef,color:#158060
 ```
 
-**🔓 Break glass — because real deals don't wait.** When a client demands an updated model in 30 minutes and the MD is on a flight, a hard gate that can't be overridden gets abandoned on night one. So DealOS lets anyone advance past an open gate — but only with a **mandatory typed reason**, recorded against their name with the exact tasks they skipped. The override then stays a **high-severity flag in Deal Review until that skipped work is actually completed**. The escape hatch exists; it just can't be quiet. *(The audit trail is the product.)*
+**🔓 Break glass — because real deals don't wait.** When a client demands an updated model in 30 minutes and the MD is on a flight, a hard gate that can't be overridden gets abandoned on night one. So Deloquer lets anyone advance past an open gate — but only with a **mandatory typed reason**, recorded against their name with the exact tasks they skipped. The override then stays a **high-severity flag in Deal Review until that skipped work is actually completed**. The escape hatch exists; it just can't be quiet. *(The audit trail is the product.)*
 
 ---
 

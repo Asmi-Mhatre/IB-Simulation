@@ -26,7 +26,7 @@ export function Welcome({
 
       <div className="welcome-content">
         <div className="w-logo w-anim" style={{ animationDelay: "0.05s" }}>
-          <span className="logo-mark">◆</span> DealOS
+          <span className="logo-mark">◆</span> Deloquer
         </div>
         <div className="w-pill w-anim" style={{ animationDelay: "0.15s" }}>
           <span className="w-pill-dot" /> Deal Execution OS

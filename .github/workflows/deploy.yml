@@ -1,4 +1,4 @@
-name: Deploy DealOS to GitHub Pages
+name: Deploy Deloquer to GitHub Pages
 
 on:
   push:

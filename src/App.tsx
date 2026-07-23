@@ -64,7 +64,7 @@ function Shell() {
   const firstDealId = state.deals[0]?.id;
   const tourSteps: TourStep[] = [
     {
-      title: "Welcome to DealOS 👋",
+      title: "Welcome to Deloquer 👋",
       body: "Every live mandate on one board, moving through the eight stages of a real transaction — mandate to closing. This 60-second tour shows you around.",
       go: () => setView({ kind: "pipeline" }),
     },
@@ -80,7 +80,7 @@ function Shell() {
     },
     {
       title: "Deal Review — your quiet analyst",
-      body: "DealOS continuously checks every deal: stale documents, overdue gates, missing sign-offs, forgotten comments. Click any flag to jump straight to the problem.",
+      body: "Deloquer continuously checks every deal: stale documents, overdue gates, missing sign-offs, forgotten comments. Click any flag to jump straight to the problem.",
       go: () => firstDealId && setView({ kind: "deal", dealId: firstDealId, tab: "overview" }),
     },
     {
@@ -115,9 +115,9 @@ function Shell() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <div className="logo">
-          <span className="logo-mark">◆</span> DealOS
-        </div>
+        <button className="logo logo-btn" onClick={() => setShowWelcome(true)} title="Back to landing page">
+          <span className="logo-mark">◆</span> Deloquer
+        </button>
         <button className="search-trigger" onClick={() => setShowPalette(true)}>
           <span>Search…</span>
           <kbd>Ctrl K</kbd>
@@ -166,6 +166,9 @@ function Shell() {
               {theme === "light" ? "☾" : "☀"}
             </button>
           </div>
+          <button className="btn-link subtle" onClick={() => setShowWelcome(true)}>
+            Landing page
+          </button>
           <button className="btn-link subtle" onClick={() => goToStep(0)}>
             Take the tour
           </button>
@@ -235,10 +238,23 @@ function Shell() {
             goToStep(0);
           }}
           onSkip={() => {
+            // "Explore with sample deals" — load the seed only if the workspace
+            // is empty, so re-opening the landing never wipes real work.
+            if (state.deals.length === 0) dispatch({ type: "reset" });
+            setView({ kind: "pipeline" });
             setShowWelcome(false);
             finishOnboarding();
           }}
           onStartBlank={() => {
+            // Guard the wipe if the user already has deals (e.g. re-opened the landing).
+            if (
+              state.deals.length > 0 &&
+              !window.confirm(
+                `Start empty? This clears all ${state.deals.length} deal(s) in this browser.`
+              )
+            ) {
+              return;
+            }
             dispatch({ type: "startBlank" });
             setView({ kind: "pipeline" });
             setShowWelcome(false);
