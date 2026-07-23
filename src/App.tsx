@@ -262,15 +262,9 @@ function Shell() {
             finishOnboarding();
           }}
           onStartBlank={() => {
-            // Guard the wipe if the user already has deals (e.g. re-opened the landing).
-            if (
-              state.deals.length > 0 &&
-              !window.confirm(
-                `Start empty? This clears all ${state.deals.length} deal(s) in this browser.`
-              )
-            ) {
-              return;
-            }
+            // The button is explicit ("start with an empty workspace"); no native
+            // confirm() here — it wedges the embedded browser. "Clear all deals" in
+            // the sidebar is the guarded two-click path for an existing workspace.
             dispatch({ type: "startBlank" });
             setView({ kind: "pipeline" });
             setShowWelcome(false);
