@@ -14,7 +14,7 @@ const dt = (offsetDays: number, hour = 10) => {
 
 export const MEMBERS: Member[] = [
   { id: "m1", name: "Rohan Mehta", initials: "RM", role: "MD", color: "#7c5cff" },
-  { id: "m2", name: "Sara Iyer", initials: "SI", role: "Director", color: "#2f9e8f" },
+  { id: "m2", name: "Neha Kapoor", initials: "NK", role: "Director", color: "#2f9e8f" },
   { id: "m3", name: "Vikram Shah", initials: "VS", role: "VP", color: "#d97706" },
   { id: "m4", name: "Ananya Rao", initials: "AR", role: "Associate", color: "#3b82f6" },
   { id: "m5", name: "Karan Patel", initials: "KP", role: "Analyst", color: "#db2777" },

@@ -22,7 +22,13 @@ export function Welcome({
       </div>
       <div className="w-float w-float-2">⚠ Pitch book stale — model updated after v1</div>
       <div className="w-float w-float-3">Advance to Closing →</div>
-      <div className="w-float w-float-4">✓ Approved by Sara</div>
+      <div className="w-float w-float-4">✓ Approved by Neha</div>
+      <div className="w-float w-float-5">🔒 Stage gate: 2 tasks blocking</div>
+      <div className="w-float w-float-6">
+        <span className="health-dot health-red" style={{ width: 8, height: 8 }} /> ATLAS — at risk
+      </div>
+      <div className="w-float w-float-7">🔓 Gate overridden — reason logged</div>
+      <div className="w-float w-float-8">📄 Operating Model v3 · signed off</div>
 
       <div className="welcome-content">
         <div className="w-logo w-anim" style={{ animationDelay: "0.05s" }}>
