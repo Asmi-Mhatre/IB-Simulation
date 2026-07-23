@@ -7,7 +7,6 @@ import {
   FileData,
   insightTab,
   latestVersionDate,
-  STAGES,
   stageIndex,
   Task,
 } from "./types";
@@ -59,14 +58,16 @@ function fmtBytes(n?: number): string {
 }
 
 function StageStepper({ deal }: { deal: Deal }) {
-  const idx = stageIndex(deal.stageId);
+  const { state } = useStore();
+  const stages = state.stages;
+  const idx = stageIndex(deal.stageId, stages);
   return (
     <div className="stepper">
-      {STAGES.map((s, i) => (
+      {stages.map((s, i) => (
         <div key={s.id} className={`step ${i < idx ? "done" : i === idx ? "current" : ""}`}>
           <div className="step-dot">{i < idx ? "✓" : i + 1}</div>
           <div className="step-label">{s.short}</div>
-          {i < STAGES.length - 1 && <div className="step-line" />}
+          {i < stages.length - 1 && <div className="step-line" />}
         </div>
       ))}
     </div>
@@ -78,7 +79,7 @@ function TaskRow({ deal, task }: { deal: Deal; task: Task }) {
   const assignee = state.members.find((m) => m.id === task.assigneeId);
   const approver = task.approvedById ? state.members.find((m) => m.id === task.approvedById) : null;
   const due = relDays(task.dueDate);
-  const stage = STAGES[stageIndex(task.stageId)];
+  const stage = state.stages[stageIndex(task.stageId, state.stages)];
 
   return (
     <div className={`task-row ${task.status === "done" ? "task-done" : ""}`}>
@@ -100,7 +101,7 @@ function TaskRow({ deal, task }: { deal: Deal; task: Task }) {
           {task.blocking && <Badge kind="blocking">gate</Badge>}
         </div>
         <div className="task-meta">
-          <span>{stage.short}</span>
+          <span>{stage?.short ?? task.stageId}</span>
           <span className={due.overdue && task.status !== "done" ? "overdue" : ""}>
             due {fmtDate(task.dueDate)} ({due.label})
           </span>
@@ -436,14 +437,18 @@ export function Workspace({
   const [breakGlass, setBreakGlass] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
 
-  const insights = useMemo(() => (deal ? computeInsights(deal, new Date()) : []), [deal]);
+  const insights = useMemo(
+    () => (deal ? computeInsights(deal, new Date(), state.stages) : []),
+    [deal, state.stages]
+  );
   if (!deal) return null;
 
-  const idx = stageIndex(deal.stageId);
+  const stages = state.stages;
+  const idx = stageIndex(deal.stageId, stages);
   const lead = state.members.find((m) => m.id === deal.leadId);
   const team = state.members.filter((m) => deal.teamIds.includes(m.id));
   const blockers = deal.tasks.filter((t) => t.stageId === deal.stageId && t.blocking && t.status !== "done");
-  const canAdvance = idx < STAGES.length - 1 && blockers.length === 0;
+  const canAdvance = idx >= 0 && idx < stages.length - 1 && blockers.length === 0;
   const unresolved = deal.comments.filter((c) => !c.resolved);
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
@@ -478,19 +483,19 @@ export function Workspace({
             disabled={!canAdvance}
             title={
               canAdvance
-                ? `Advance to ${STAGES[idx + 1]?.label}`
+                ? `Advance to ${stages[idx + 1]?.label}`
                 : blockers.length > 0
                   ? `Blocked by: ${blockers.map((b) => b.title).join(", ")}`
                   : "Deal is at final stage"
             }
             onClick={() => {
               dispatch({ type: "advanceStage", dealId: deal.id });
-              toast(`${deal.codename} advanced to ${STAGES[idx + 1].label}`);
+              toast(`${deal.codename} advanced to ${stages[idx + 1].label}`);
             }}
           >
-            {idx >= STAGES.length - 1 ? "Final stage" : `Advance to ${STAGES[idx + 1].short} →`}
+            {idx >= stages.length - 1 ? "Final stage" : `Advance to ${stages[idx + 1].short} →`}
           </button>
-          {blockers.length > 0 && idx < STAGES.length - 1 && (
+          {blockers.length > 0 && idx < stages.length - 1 && (
             <button
               className="btn btn-breakglass"
               title="Advance anyway, past the open gate — logged with a mandatory reason"
@@ -524,8 +529,8 @@ export function Workspace({
             <h2>🔓 Break glass — override stage gate</h2>
             <p className="subtle">
               You're advancing <strong>{deal.name}</strong> from{" "}
-              <strong>{STAGES[idx].label}</strong> to{" "}
-              <strong>{STAGES[idx + 1]?.label}</strong> past {blockers.length} unfinished gate task
+              <strong>{stages[idx].label}</strong> to{" "}
+              <strong>{stages[idx + 1]?.label}</strong> past {blockers.length} unfinished gate task
               {blockers.length > 1 ? "s" : ""}. This is recorded against your name and stays flagged
               in Deal Review until the skipped work is completed.
             </p>
@@ -551,7 +556,7 @@ export function Workspace({
                 disabled={!overrideReason.trim()}
                 onClick={() => {
                   dispatch({ type: "overrideStage", dealId: deal.id, reason: overrideReason });
-                  toast(`${deal.codename}: gate overridden → ${STAGES[idx + 1].label}`);
+                  toast(`${deal.codename}: gate overridden → ${stages[idx + 1].label}`);
                   setBreakGlass(false);
                 }}
               >
@@ -648,7 +653,7 @@ export function Workspace({
           ) : (
             <>
               <AddTaskForm deal={deal} />
-              {STAGES.filter((s) => deal.tasks.some((t) => t.stageId === s.id)).map((s) => (
+              {state.stages.filter((s) => deal.tasks.some((t) => t.stageId === s.id)).map((s) => (
                 <div key={s.id}>
                   <h4 className="group-head">{s.label}</h4>
                   {deal.tasks

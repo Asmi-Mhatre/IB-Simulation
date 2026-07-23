@@ -1,12 +1,5 @@
-export type StageId =
-  | "mandate"
-  | "nda"
-  | "data_room"
-  | "modeling"
-  | "internal_review"
-  | "client_materials"
-  | "negotiation"
-  | "closing";
+/** Stage ids are free-form strings so teams can add their own stages. */
+export type StageId = string;
 
 export interface Stage {
   id: StageId;
@@ -14,7 +7,8 @@ export interface Stage {
   short: string;
 }
 
-export const STAGES: Stage[] = [
+/** The out-of-the-box pipeline. A workspace can customise its own copy. */
+export const DEFAULT_STAGES: Stage[] = [
   { id: "mandate", label: "Client Mandate", short: "Mandate" },
   { id: "nda", label: "NDA & Engagement", short: "NDA" },
   { id: "data_room", label: "Data Room & Diligence", short: "Data Room" },
@@ -25,7 +19,11 @@ export const STAGES: Stage[] = [
   { id: "closing", label: "Closing", short: "Closing" },
 ];
 
-export const stageIndex = (id: StageId) => STAGES.findIndex((s) => s.id === id);
+/** Back-compat alias; also the fallback when custom stages aren't supplied. */
+export const STAGES = DEFAULT_STAGES;
+
+export const stageIndex = (id: StageId, stages: Stage[] = DEFAULT_STAGES) =>
+  stages.findIndex((s) => s.id === id);
 
 export type Role = "MD" | "Director" | "VP" | "Associate" | "Analyst" | "Legal";
 
@@ -153,6 +151,8 @@ export interface AppState {
   deals: Deal[];
   members: Member[];
   currentUserId: string;
+  /** The workspace's pipeline stages — editable by the team. */
+  stages: Stage[];
 }
 
 /* ---------- Insight engine (rule-based "AI review") ---------- */
@@ -170,9 +170,10 @@ export function latestVersionDate(doc: Doc): string {
   return doc.versions.reduce((m, v) => (v.date > m ? v.date : m), "");
 }
 
-export function computeInsights(deal: Deal, now: Date): Insight[] {
+export function computeInsights(deal: Deal, now: Date, stages: Stage[] = DEFAULT_STAGES): Insight[] {
   const insights: Insight[] = [];
   const today = now.toISOString().slice(0, 10);
+  const stageLabel = (id: StageId) => stages[stageIndex(id, stages)]?.label ?? id;
 
   // 1. Overdue tasks
   for (const t of deal.tasks) {
@@ -195,7 +196,7 @@ export function computeInsights(deal: Deal, now: Date): Insight[] {
       id: "stage-blocked",
       severity: "medium",
       title: `${blockers.length} blocking task${blockers.length > 1 ? "s" : ""} open in current stage`,
-      detail: `Deal cannot advance past ${STAGES[stageIndex(deal.stageId)].label} until: ${blockers
+      detail: `Deal cannot advance past ${stageLabel(deal.stageId)} until: ${blockers
         .map((b) => `"${b.title}"`)
         .join(", ")}.`,
     });
@@ -269,9 +270,9 @@ export function computeInsights(deal: Deal, now: Date): Insight[] {
       id: `override-${o.id}`,
       severity: "high",
       title: `Gate overridden — ${stillOpen.length} skipped task${stillOpen.length > 1 ? "s" : ""} still open`,
-      detail: `${o.actorRole} force-advanced ${STAGES[stageIndex(o.fromStage)].label} → ${
-        STAGES[stageIndex(o.toStage)].label
-      } past ${o.skippedTaskIds.length} gate task${o.skippedTaskIds.length > 1 ? "s" : ""}. Reason: "${o.reason}". Still open: ${o.skippedTaskTitles
+      detail: `${o.actorRole} force-advanced ${stageLabel(o.fromStage)} → ${stageLabel(
+        o.toStage
+      )} past ${o.skippedTaskIds.length} gate task${o.skippedTaskIds.length > 1 ? "s" : ""}. Reason: "${o.reason}". Still open: ${o.skippedTaskTitles
         .filter((_, i) => stillOpen.includes(o.skippedTaskIds[i]))
         .map((t) => `"${t}"`)
         .join(", ")}.`,
@@ -284,8 +285,8 @@ export function computeInsights(deal: Deal, now: Date): Insight[] {
 
 export type Health = "green" | "amber" | "red";
 
-export function dealHealth(deal: Deal, now: Date): Health {
-  const insights = computeInsights(deal, now);
+export function dealHealth(deal: Deal, now: Date, stages: Stage[] = DEFAULT_STAGES): Health {
+  const insights = computeInsights(deal, now, stages);
   if (insights.some((i) => i.severity === "high")) return "red";
   if (insights.some((i) => i.severity === "medium")) return "amber";
   return "green";

@@ -155,7 +155,7 @@ function Shell() {
               onClick={() => openDeal(d.id)}
             >
               <span className="nav-codename">
-                <HealthDot health={dealHealth(d, now)} size={7} />
+                <HealthDot health={dealHealth(d, now, state.stages)} size={7} />
                 {d.codename}
               </span>
               <span className="nav-client">{d.client}</span>
@@ -183,9 +183,6 @@ function Shell() {
               {theme === "light" ? "☾" : "☀"}
             </button>
           </div>
-          <button className="btn-link subtle" onClick={() => setShowWelcome(true)}>
-            Landing page
-          </button>
           <button className="btn-link subtle" onClick={() => goToStep(0)}>
             Take the tour
           </button>

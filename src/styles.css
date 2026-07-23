@@ -248,6 +248,21 @@ h1 { font-size: 21px; font-weight: 700; }
 .team-edit input[type="text"] { flex: 1; min-width: 160px; }
 .team-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
+/* ---------- Stage manager ---------- */
+.page-header-actions { display: flex; gap: 8px; align-items: center; }
+.stage-manager { max-width: 560px; width: 100%; }
+.stage-mgr-list { display: grid; gap: 8px; margin: 14px 0; }
+.stage-mgr-row { display: flex; align-items: center; gap: 8px; }
+.stage-mgr-num {
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700;
+  background: var(--accent-soft); color: var(--accent);
+}
+.stage-mgr-label { flex: 1; min-width: 0; }
+.stage-mgr-short { width: 110px; flex-shrink: 0; }
+.stage-mgr-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.stage-mgr-add { margin-bottom: 4px; }
+
 input, select, textarea {
   font-family: inherit;
   font-size: 13px;

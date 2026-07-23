@@ -3,14 +3,15 @@ import {
   AppState,
   Deal,
   DealType,
+  DEFAULT_STAGES,
   Doc,
   DocType,
   FileData,
   GateOverride,
   Member,
   Role,
+  Stage,
   StageId,
-  STAGES,
   stageIndex,
   Task,
   TaskStatus,
@@ -28,6 +29,7 @@ export const EMPTY: AppState = {
   deals: [],
   members: SEED.members,
   currentUserId: SEED.currentUserId,
+  stages: SEED.stages.map((s) => ({ ...s })),
 };
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -54,6 +56,13 @@ export function memberInUse(state: AppState, memberId: string): boolean {
   );
 }
 
+/** True if any deal sits in this stage or any task belongs to it — can't remove. */
+export function stageInUse(state: AppState, stageId: string): boolean {
+  return state.deals.some(
+    (d) => d.stageId === stageId || d.tasks.some((t) => t.stageId === stageId)
+  );
+}
+
 type Action =
   | { type: "reset" }
   | { type: "startBlank" }
@@ -76,7 +85,11 @@ type Action =
   | { type: "addMember"; name: string; role: Role }
   | { type: "updateMember"; memberId: string; name: string; role: Role }
   | { type: "removeMember"; memberId: string }
-  | { type: "setCurrentUser"; memberId: string };
+  | { type: "setCurrentUser"; memberId: string }
+  | { type: "addStage"; label: string; short: string }
+  | { type: "renameStage"; stageId: string; label: string; short: string }
+  | { type: "removeStage"; stageId: string }
+  | { type: "moveStage"; stageId: string; dir: "up" | "down" };
 
 function log(deal: Deal, actorId: string, text: string): Deal {
   return {
@@ -99,24 +112,33 @@ function reducer(state: AppState, action: Action): AppState {
       return EMPTY;
 
     case "createDeal":
-      return { ...state, deals: [action.deal, ...state.deals] };
+      // New deals always start at the workspace's first stage.
+      return {
+        ...state,
+        deals: [
+          { ...action.deal, stageId: state.stages[0]?.id ?? action.deal.stageId },
+          ...state.deals,
+        ],
+      };
 
     case "advanceStage":
       return updateDeal(state, action.dealId, (d) => {
-        const idx = stageIndex(d.stageId);
-        if (idx >= STAGES.length - 1) return d;
+        const stages = state.stages;
+        const idx = stageIndex(d.stageId, stages);
+        if (idx < 0 || idx >= stages.length - 1) return d;
         const blocked = d.tasks.some(
           (t) => t.stageId === d.stageId && t.blocking && t.status !== "done"
         );
         if (blocked) return d;
-        const next = STAGES[idx + 1].id as StageId;
-        return log({ ...d, stageId: next }, me, `advanced the deal to ${STAGES[idx + 1].label}`);
+        const next = stages[idx + 1].id;
+        return log({ ...d, stageId: next }, me, `advanced the deal to ${stages[idx + 1].label}`);
       });
 
     case "overrideStage":
       return updateDeal(state, action.dealId, (d) => {
-        const idx = stageIndex(d.stageId);
-        if (idx >= STAGES.length - 1) return d;
+        const stages = state.stages;
+        const idx = stageIndex(d.stageId, stages);
+        if (idx < 0 || idx >= stages.length - 1) return d;
         const reason = action.reason.trim();
         if (!reason) return d; // a reason is mandatory — no silent overrides
         const skipped = d.tasks.filter(
@@ -125,7 +147,7 @@ function reducer(state: AppState, action: Action): AppState {
         if (skipped.length === 0) return d; // nothing to break glass over
         const actor = state.members.find((m) => m.id === me);
         const from = d.stageId;
-        const to = STAGES[idx + 1].id as StageId;
+        const to = stages[idx + 1].id;
         const override: GateOverride = {
           id: uid(),
           ts: nowIso(),
@@ -148,7 +170,7 @@ function reducer(state: AppState, action: Action): AppState {
               ts: nowIso(),
               actorId: me,
               kind: "override",
-              text: `broke glass to advance to ${STAGES[idx + 1].label}, skipping ${skipped.length} gate task${
+              text: `broke glass to advance to ${stages[idx + 1].label}, skipping ${skipped.length} gate task${
                 skipped.length > 1 ? "s" : ""
               } — "${reason}"`,
             },
@@ -395,6 +417,42 @@ function reducer(state: AppState, action: Action): AppState {
         ? { ...state, currentUserId: action.memberId }
         : state;
 
+    case "addStage": {
+      const label = action.label.trim();
+      if (!label) return state;
+      const stage: Stage = {
+        id: uid(),
+        label,
+        short: action.short.trim() || label.slice(0, 12),
+      };
+      return { ...state, stages: [...state.stages, stage] };
+    }
+
+    case "renameStage":
+      // Store as typed (allows transient empties during inline editing).
+      return {
+        ...state,
+        stages: state.stages.map((s) =>
+          s.id === action.stageId ? { ...s, label: action.label, short: action.short } : s
+        ),
+      };
+
+    case "removeStage": {
+      if (stageInUse(state, action.stageId)) return state;
+      if (state.stages.length <= 1) return state;
+      return { ...state, stages: state.stages.filter((s) => s.id !== action.stageId) };
+    }
+
+    case "moveStage": {
+      const i = state.stages.findIndex((s) => s.id === action.stageId);
+      if (i < 0) return state;
+      const j = action.dir === "up" ? i - 1 : i + 1;
+      if (j < 0 || j >= state.stages.length) return state;
+      const stages = [...state.stages];
+      [stages[i], stages[j]] = [stages[j], stages[i]];
+      return { ...state, stages };
+    }
+
     default:
       return state;
   }
@@ -427,7 +485,14 @@ export function makeDeal(input: {
 function loadInitial(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as AppState;
+    if (raw) {
+      const parsed = JSON.parse(raw) as AppState;
+      // Migrate state saved before customisable stages existed.
+      if (!parsed.stages || parsed.stages.length === 0) {
+        parsed.stages = DEFAULT_STAGES.map((s) => ({ ...s }));
+      }
+      return parsed;
+    }
   } catch {
     /* corrupted state — fall back to seed */
   }

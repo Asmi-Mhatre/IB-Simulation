@@ -1,4 +1,4 @@
-import { AppState, Deal, Member } from "./types";
+import { AppState, Deal, DEFAULT_STAGES, Member } from "./types";
 
 /** Dates are generated relative to "now" so the demo always looks alive. */
 const now = new Date();
@@ -309,4 +309,5 @@ export const SEED: AppState = {
   deals,
   members: MEMBERS,
   currentUserId: "m4",
+  stages: DEFAULT_STAGES.map((s) => ({ ...s })),
 };
