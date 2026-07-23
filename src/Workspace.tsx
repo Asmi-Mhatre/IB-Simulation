@@ -4,6 +4,7 @@ import {
   Deal,
   Doc,
   DocType,
+  FileData,
   insightTab,
   latestVersionDate,
   STAGES,
@@ -28,6 +29,34 @@ import {
 type Tab = "overview" | "checklist" | "documents" | "comments" | "activity";
 
 const DOC_TYPES: DocType[] = ["Model", "Pitch Book", "Legal", "Diligence", "Memo", "Data"];
+
+// Files are stored inline in localStorage as base64, so keep them modest.
+const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
+
+function readFileData(file: File): Promise<FileData | null> {
+  return new Promise((resolve) => {
+    if (file.size > MAX_FILE_BYTES) {
+      toast(`"${file.name}" is too large — 2 MB max in this in-browser build`);
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      resolve({ name: file.name, type: file.type, size: file.size, dataUrl: String(reader.result) });
+    reader.onerror = () => {
+      toast("Couldn't read that file");
+      resolve(null);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function fmtBytes(n?: number): string {
+  if (!n) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function StageStepper({ deal }: { deal: Deal }) {
   const idx = stageIndex(deal.stageId);
@@ -160,6 +189,7 @@ function DocCard({ deal, doc }: { deal: Deal; doc: Doc }) {
   const { state, dispatch } = useStore();
   const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState("");
+  const [file, setFile] = useState<FileData | null>(null);
   const owner = state.members.find((m) => m.id === doc.ownerId);
   const latest = doc.versions[doc.versions.length - 1];
   const stale = doc.dependsOn.some((depId) => {
@@ -191,7 +221,20 @@ function DocCard({ deal, doc }: { deal: Deal; doc: Doc }) {
               return (
                 <div key={v.v} className="version-row">
                   <span className="version-num">v{v.v}</span>
-                  <span className="version-note">{v.note}</span>
+                  <span className="version-note">
+                    {v.note}
+                    {v.dataUrl && (
+                      <a
+                        className="doc-download"
+                        href={v.dataUrl}
+                        download={v.fileName}
+                        onClick={(e) => e.stopPropagation()}
+                        title={`Download ${v.fileName} (${fmtBytes(v.fileSize)})`}
+                      >
+                        ⬇ {v.fileName} <span className="subtle">{fmtBytes(v.fileSize)}</span>
+                      </a>
+                    )}
+                  </span>
                   <span className="version-meta">
                     {author?.name.split(" ")[0]} · {fmtDateTime(v.date)}
                   </span>
@@ -203,13 +246,32 @@ function DocCard({ deal, doc }: { deal: Deal; doc: Doc }) {
             className="inline-form"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!note.trim()) return;
-              dispatch({ type: "addDocVersion", dealId: deal.id, docId: doc.id, note: note.trim() });
+              if (!note.trim() && !file) return;
+              dispatch({
+                type: "addDocVersion",
+                dealId: deal.id,
+                docId: doc.id,
+                note: note.trim() || (file ? `Uploaded ${file.name}` : ""),
+                file: file ?? undefined,
+              });
               toast(`Published ${doc.name} v${latest.v + 1}`);
               setNote("");
+              setFile(null);
             }}
           >
             <input placeholder="What changed in this version?" value={note} onChange={(e) => setNote(e.target.value)} />
+            <label className="file-pick" title="Attach a file (optional, 2 MB max)">
+              {file ? `📎 ${file.name}` : "📎 Attach file"}
+              <input
+                type="file"
+                hidden
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  setFile(f ? await readFileData(f) : null);
+                  e.target.value = "";
+                }}
+              />
+            </label>
             <button className="btn" type="submit">
               Publish new version
             </button>
@@ -229,6 +291,17 @@ function DocCard({ deal, doc }: { deal: Deal; doc: Doc }) {
                 {doc.status === "draft" ? "Send for review" : "Mark approved"}
               </button>
             )}
+            <button
+              className="btn btn-danger"
+              type="button"
+              title="Move this document to the recycle bin"
+              onClick={() => {
+                dispatch({ type: "deleteDoc", dealId: deal.id, docId: doc.id });
+                toast(`"${doc.name}" moved to recycle bin`);
+              }}
+            >
+              Delete
+            </button>
           </form>
         </div>
       )}
@@ -241,6 +314,7 @@ function AddDocForm({ deal }: { deal: Deal }) {
   const [name, setName] = useState("");
   const [docType, setDocType] = useState<DocType>("Model");
   const [dependsOn, setDependsOn] = useState<string>("");
+  const [file, setFile] = useState<FileData | null>(null);
 
   return (
     <form
@@ -253,11 +327,13 @@ function AddDocForm({ deal }: { deal: Deal }) {
           dealId: deal.id,
           name: name.trim(),
           docType,
-          note: "Initial version",
+          note: file ? `Initial upload — ${file.name}` : "Initial version",
           dependsOn: dependsOn ? [dependsOn] : [],
+          file: file ?? undefined,
         });
         setName("");
         setDependsOn("");
+        setFile(null);
       }}
     >
       <input placeholder="New document name…" value={name} onChange={(e) => setName(e.target.value)} />
@@ -268,16 +344,78 @@ function AddDocForm({ deal }: { deal: Deal }) {
       </select>
       <select value={dependsOn} onChange={(e) => setDependsOn(e.target.value)}>
         <option value="">no dependency</option>
-        {deal.docs.map((d) => (
-          <option key={d.id} value={d.id}>
-            depends on: {d.name}
-          </option>
-        ))}
+        {deal.docs
+          .filter((d) => !d.deleted)
+          .map((d) => (
+            <option key={d.id} value={d.id}>
+              depends on: {d.name}
+            </option>
+          ))}
       </select>
+      <label className="file-pick" title="Attach a file (optional, 2 MB max)">
+        {file ? `📎 ${file.name}` : "📎 Attach file"}
+        <input
+          type="file"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            setFile(f ? await readFileData(f) : null);
+            e.target.value = "";
+          }}
+        />
+      </label>
       <button className="btn btn-primary" type="submit">
         Add
       </button>
     </form>
+  );
+}
+
+function RecycleBin({ deal, docs }: { deal: Deal; docs: Doc[] }) {
+  const { state, dispatch } = useStore();
+  const [open, setOpen] = useState(false);
+  if (docs.length === 0) return null;
+  return (
+    <div className="recycle-bin">
+      <button className="recycle-toggle" onClick={() => setOpen((o) => !o)}>
+        🗑 Recycle bin ({docs.length}) {open ? "▾" : "▸"}
+      </button>
+      {open &&
+        docs.map((d) => {
+          const by = state.members.find((m) => m.id === d.deletedById);
+          return (
+            <div key={d.id} className="recycle-row">
+              <span className="recycle-name">
+                {d.name} <span className="subtle">· {d.type}</span>
+              </span>
+              <span className="subtle recycle-meta">
+                deleted {d.deletedAt ? fmtDateTime(d.deletedAt) : ""}
+                {by ? ` by ${by.name.split(" ")[0]}` : ""}
+              </span>
+              <div className="recycle-actions">
+                <button
+                  className="btn btn-mini"
+                  onClick={() => {
+                    dispatch({ type: "restoreDoc", dealId: deal.id, docId: d.id });
+                    toast(`Restored "${d.name}"`);
+                  }}
+                >
+                  Restore
+                </button>
+                <button
+                  className="btn btn-mini btn-danger"
+                  onClick={() => {
+                    dispatch({ type: "purgeDoc", dealId: deal.id, docId: d.id });
+                    toast(`Permanently deleted "${d.name}"`);
+                  }}
+                >
+                  Delete permanently
+                </button>
+              </div>
+            </div>
+          );
+        })}
+    </div>
   );
 }
 
@@ -525,21 +663,27 @@ export function Workspace({
         </section>
       )}
 
-      {tab === "documents" && (
-        <section className="panel">
-          <AddDocForm deal={deal} />
-          {deal.docs.map((d) => (
-            <DocCard key={d.id} deal={deal} doc={d} />
-          ))}
-          {deal.docs.length === 0 && (
-            <EmptyState
-              icon="▤"
-              title="No documents yet"
-              hint="Add the model, deck, or legal doc the team is working from. Declare dependencies so stale versions get flagged automatically."
-            />
-          )}
-        </section>
-      )}
+      {tab === "documents" &&
+        (() => {
+          const activeDocs = deal.docs.filter((d) => !d.deleted);
+          const binned = deal.docs.filter((d) => d.deleted);
+          return (
+            <section className="panel">
+              <AddDocForm deal={deal} />
+              {activeDocs.map((d) => (
+                <DocCard key={d.id} deal={deal} doc={d} />
+              ))}
+              {activeDocs.length === 0 && (
+                <EmptyState
+                  icon="▤"
+                  title="No documents yet"
+                  hint="Add the model, deck, or legal doc the team is working from — attach the actual file, and declare dependencies so stale versions get flagged automatically."
+                />
+              )}
+              <RecycleBin deal={deal} docs={binned} />
+            </section>
+          );
+        })()}
 
       {tab === "comments" && (
         <section className="panel">

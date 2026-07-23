@@ -5,6 +5,7 @@ import {
   DealType,
   Doc,
   DocType,
+  FileData,
   GateOverride,
   Member,
   Role,
@@ -64,9 +65,12 @@ type Action =
   | { type: "setTaskStatus"; dealId: string; taskId: string; status: TaskStatus }
   | { type: "approveTask"; dealId: string; taskId: string }
   | { type: "revokeApproval"; dealId: string; taskId: string }
-  | { type: "addDoc"; dealId: string; name: string; docType: DocType; note: string; dependsOn: string[] }
-  | { type: "addDocVersion"; dealId: string; docId: string; note: string }
+  | { type: "addDoc"; dealId: string; name: string; docType: DocType; note: string; dependsOn: string[]; file?: FileData }
+  | { type: "addDocVersion"; dealId: string; docId: string; note: string; file?: FileData }
   | { type: "setDocStatus"; dealId: string; docId: string; status: Doc["status"] }
+  | { type: "deleteDoc"; dealId: string; docId: string }
+  | { type: "restoreDoc"; dealId: string; docId: string }
+  | { type: "purgeDoc"; dealId: string; docId: string }
   | { type: "addComment"; dealId: string; text: string; target: string }
   | { type: "toggleComment"; dealId: string; commentId: string }
   | { type: "addMember"; name: string; role: Role }
@@ -235,6 +239,7 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "addDoc":
       return updateDeal(state, action.dealId, (d) => {
+        const f = action.file;
         const doc: Doc = {
           id: uid(),
           name: action.name,
@@ -242,22 +247,47 @@ function reducer(state: AppState, action: Action): AppState {
           ownerId: me,
           status: "draft",
           dependsOn: action.dependsOn,
-          versions: [{ v: 1, date: nowIso(), authorId: me, note: action.note || "Initial version" }],
+          versions: [
+            {
+              v: 1,
+              date: nowIso(),
+              authorId: me,
+              note: action.note || "Initial version",
+              ...(f && { fileName: f.name, fileType: f.type, fileSize: f.size, dataUrl: f.dataUrl }),
+            },
+          ],
         };
-        return log({ ...d, docs: [...d.docs, doc] }, me, `added document "${action.name}"`);
+        return log(
+          { ...d, docs: [...d.docs, doc] },
+          me,
+          `added document "${action.name}"${f ? ` (uploaded ${f.name})` : ""}`
+        );
       });
 
     case "addDocVersion":
       return updateDeal(state, action.dealId, (d) => {
         const doc = d.docs.find((x) => x.id === action.docId);
         if (!doc) return d;
+        const f = action.file;
         const v = Math.max(...doc.versions.map((x) => x.v)) + 1;
         const docs = d.docs.map((x) =>
           x.id === action.docId
-            ? { ...x, versions: [...x.versions, { v, date: nowIso(), authorId: me, note: action.note }] }
+            ? {
+                ...x,
+                versions: [
+                  ...x.versions,
+                  {
+                    v,
+                    date: nowIso(),
+                    authorId: me,
+                    note: action.note,
+                    ...(f && { fileName: f.name, fileType: f.type, fileSize: f.size, dataUrl: f.dataUrl }),
+                  },
+                ],
+              }
             : x
         );
-        return log({ ...d, docs }, me, `published ${doc.name} v${v}`);
+        return log({ ...d, docs }, me, `published ${doc.name} v${v}${f ? ` (uploaded ${f.name})` : ""}`);
       });
 
     case "setDocStatus":
@@ -266,6 +296,39 @@ function reducer(state: AppState, action: Action): AppState {
         if (!doc) return d;
         const docs = d.docs.map((x) => (x.id === action.docId ? { ...x, status: action.status } : x));
         return log({ ...d, docs }, me, `set "${doc.name}" to ${action.status.replace("_", " ")}`);
+      });
+
+    case "deleteDoc":
+      return updateDeal(state, action.dealId, (d) => {
+        const doc = d.docs.find((x) => x.id === action.docId);
+        if (!doc) return d;
+        const docs = d.docs.map((x) =>
+          x.id === action.docId ? { ...x, deleted: true, deletedAt: nowIso(), deletedById: me } : x
+        );
+        return log({ ...d, docs }, me, `moved "${doc.name}" to the recycle bin`);
+      });
+
+    case "restoreDoc":
+      return updateDeal(state, action.dealId, (d) => {
+        const doc = d.docs.find((x) => x.id === action.docId);
+        if (!doc) return d;
+        const docs = d.docs.map((x) =>
+          x.id === action.docId
+            ? { ...x, deleted: false, deletedAt: undefined, deletedById: undefined }
+            : x
+        );
+        return log({ ...d, docs }, me, `restored "${doc.name}" from the recycle bin`);
+      });
+
+    case "purgeDoc":
+      return updateDeal(state, action.dealId, (d) => {
+        const doc = d.docs.find((x) => x.id === action.docId);
+        if (!doc) return d;
+        return log(
+          { ...d, docs: d.docs.filter((x) => x.id !== action.docId) },
+          me,
+          `permanently deleted "${doc.name}"`
+        );
       });
 
     case "addComment":
@@ -376,7 +439,16 @@ const StoreCtx = createContext<{ state: AppState; dispatch: React.Dispatch<Actio
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadInitial);
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // Most likely the storage quota was exceeded by inline file uploads.
+      window.dispatchEvent(
+        new CustomEvent<string>("dealos-toast", {
+          detail: "Storage full — uploaded files are large. Delete some to keep saving.",
+        })
+      );
+    }
   }, [state]);
   return <StoreCtx.Provider value={{ state, dispatch }}>{children}</StoreCtx.Provider>;
 }

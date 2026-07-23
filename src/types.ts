@@ -59,6 +59,11 @@ export interface DocVersion {
   date: string; // ISO datetime
   authorId: string;
   note: string;
+  /** Optional uploaded file, stored inline as a base64 data URL (no backend). */
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  dataUrl?: string;
 }
 
 export interface Doc {
@@ -70,6 +75,18 @@ export interface Doc {
   /** ids of documents this one depends on — if a dependency is newer, this doc is stale */
   dependsOn: string[];
   versions: DocVersion[];
+  /** soft-delete: moved to the recycle bin, restorable until purged */
+  deleted?: boolean;
+  deletedAt?: string;
+  deletedById?: string;
+}
+
+/** An uploaded file captured inline (base64 data URL) — no backend storage. */
+export interface FileData {
+  name: string;
+  type: string;
+  size: number;
+  dataUrl: string;
 }
 
 export interface Comment {
@@ -196,12 +213,13 @@ export function computeInsights(deal: Deal, now: Date): Insight[] {
     }
   }
 
-  // 4. Stale documents (a dependency has a newer version)
+  // 4. Stale documents (a dependency has a newer version) — deleted docs excluded
   for (const d of deal.docs) {
+    if (d.deleted) continue;
     const dDate = latestVersionDate(d);
     for (const depId of d.dependsOn) {
       const dep = deal.docs.find((x) => x.id === depId);
-      if (dep && latestVersionDate(dep) > dDate) {
+      if (dep && !dep.deleted && latestVersionDate(dep) > dDate) {
         insights.push({
           id: `stale-${d.id}-${depId}`,
           severity: "high",
@@ -227,7 +245,7 @@ export function computeInsights(deal: Deal, now: Date): Insight[] {
   }
 
   // 6. Documents sitting in review
-  const inReview = deal.docs.filter((d) => d.status === "in_review");
+  const inReview = deal.docs.filter((d) => d.status === "in_review" && !d.deleted);
   if (inReview.length > 0) {
     insights.push({
       id: "docs-in-review",
