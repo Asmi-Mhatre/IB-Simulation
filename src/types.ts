@@ -47,6 +47,12 @@ export interface Task {
   blocking: boolean; // must be done before the deal can advance past its stage
   requiresApproval: boolean;
   approvedById?: string;
+  /**
+   * "copilot" marks a follow-up the copilot raised for a human. The copilot
+   * never auto-executes its own flags — that would let it quietly close the
+   * very work it escalated — so this tag excludes the task from future runs.
+   */
+  origin?: "copilot";
 }
 
 export type DocType = "Model" | "Pitch Book" | "Legal" | "Diligence" | "Memo" | "Data";
@@ -102,8 +108,12 @@ export interface ActivityEvent {
   ts: string; // ISO datetime
   actorId: string;
   text: string;
-  /** "override" marks a break-glass event so the feed can render it prominently */
-  kind?: "override";
+  /**
+   * "override" marks a break-glass event so the feed can render it prominently.
+   * "copilot" marks work the copilot did autonomously (actorId is COPILOT_ID,
+   * which is not a real member) so every automated action stays auditable.
+   */
+  kind?: "override" | "copilot";
 }
 
 /**

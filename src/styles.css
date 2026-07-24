@@ -953,6 +953,111 @@ kbd {
 .tour-skip { margin-bottom: 0; color: var(--ink-2); }
 .tour-nav { display: flex; gap: 8px; }
 
+/* ---------- Deal Copilot ---------- */
+.copilot { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .copilot { grid-template-columns: 1fr; } }
+
+.copilot-panel { border-top: 3px solid var(--accent); }
+.copilot-lede { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin-bottom: 14px; }
+.copilot-lede strong { color: var(--ink); font-weight: 600; }
+
+.copilot-chips { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.copilot-chip { background: var(--bg); border-radius: 8px; padding: 8px 14px; text-align: center; min-width: 74px; }
+.copilot-chip-num { font-size: 20px; font-weight: 700; line-height: 1; }
+.copilot-chip-label { font-size: 11px; color: var(--ink-2); margin-top: 3px; }
+.copilot-run { margin-left: auto; }
+
+.copilot-empty { font-size: 13px; color: var(--ink-2); padding: 14px 2px; }
+
+.copilot-plan { list-style: none; margin: 12px 0 0; padding: 0; }
+.copilot-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+  animation: fade-up 0.3s ease-out both;
+}
+.copilot-step:last-child { border-bottom: none; }
+.copilot-step-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.step-flag .copilot-step-icon { background: #fff4e6; color: var(--amber); }
+:root[data-theme="dark"] .step-flag .copilot-step-icon { background: #362a15; }
+.copilot-step-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.copilot-step-title { font-weight: 600; font-size: 13.5px; }
+.copilot-step-detail { font-size: 12px; color: var(--ink-2); margin-top: 1px; }
+
+.copilot-step.status-pending { opacity: 0.55; }
+.copilot-step.status-running .copilot-step-icon { background: var(--accent-soft); }
+.copilot-step.status-running .copilot-step-detail { color: var(--accent); }
+.copilot-step.status-done .copilot-step-icon { background: var(--green); color: #fff; }
+.step-flag.status-done .copilot-step-icon { background: var(--amber); color: #fff; }
+
+.copilot-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  animation: copilot-spin 0.7s linear infinite;
+}
+@keyframes copilot-spin { to { transform: rotate(360deg); } }
+
+.badge-copilot-kind {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Human gate panel */
+.copilot-gate { border-top: 3px solid var(--amber); }
+.gate-list { display: flex; flex-direction: column; gap: 8px; }
+.gate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.gate-glyph { font-size: 14px; flex-shrink: 0; }
+.gate-main { flex: 1; min-width: 0; }
+.gate-title { font-weight: 600; font-size: 13px; }
+.gate-meta { font-size: 11.5px; color: var(--ink-2); margin-top: 1px; }
+.gate-action { flex-shrink: 0; }
+.gate-advance { border-color: var(--accent); }
+
+/* Copilot in the activity feed */
+.activity-copilot { background: var(--accent-soft); border-radius: var(--radius); padding: 6px 8px; margin: 2px -8px; }
+.copilot-mark {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+}
+.copilot-badge { color: #fff; background: var(--accent); }
+:root[data-theme="dark"] .copilot-badge { color: #0a0d14; background: var(--accent); }
+
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

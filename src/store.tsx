@@ -22,6 +22,14 @@ import { ROLE_FALLBACK, STAGE_OFFSETS, TEMPLATES } from "./templates";
 const STORAGE_KEY = "dealos-state-v1";
 
 /**
+ * The copilot's synthetic actor id. It is deliberately NOT a real member — the
+ * copilot can execute routine work, but it never signs off, approves, or
+ * advances a gate. Attributing its activity to a distinct id keeps every
+ * automated action separate from human work in the audit trail.
+ */
+export const COPILOT_ID = "copilot";
+
+/**
  * An empty workspace: no deals, but the team roster is kept so new deals have
  * people to assign. This is what a real team starts from instead of the demo.
  */
@@ -90,12 +98,27 @@ type Action =
   | { type: "addStage"; label: string; short: string }
   | { type: "renameStage"; stageId: string; label: string; short: string }
   | { type: "removeStage"; stageId: string }
-  | { type: "moveStage"; stageId: string; dir: "up" | "down" };
+  | { type: "moveStage"; stageId: string; dir: "up" | "down" }
+  | { type: "copilotStart"; dealId: string }
+  | { type: "copilotSetTaskStatus"; dealId: string; taskId: string; status: TaskStatus; note: string }
+  | { type: "copilotFlag"; dealId: string; title: string; assigneeId: string; dueDate: string }
+  | { type: "copilotFinish"; dealId: string; summary: string };
 
 function log(deal: Deal, actorId: string, text: string): Deal {
   return {
     ...deal,
     activity: [...deal.activity, { id: uid(), ts: nowIso(), actorId, text }],
+  };
+}
+
+/** Append a copilot activity entry (actorId = COPILOT_ID, kind = "copilot"). */
+function copilotLog(deal: Deal, text: string): Deal {
+  return {
+    ...deal,
+    activity: [
+      ...deal.activity,
+      { id: uid(), ts: nowIso(), actorId: COPILOT_ID, text, kind: "copilot" },
+    ],
   };
 }
 
@@ -472,6 +495,47 @@ function reducer(state: AppState, action: Action): AppState {
       [stages[i], stages[j]] = [stages[j], stages[i]];
       return { ...state, stages };
     }
+
+    case "copilotStart":
+      return updateDeal(state, action.dealId, (d) => copilotLog(d, "started an execution run"));
+
+    case "copilotSetTaskStatus":
+      // The copilot may pick up or complete routine work, but the UI never asks
+      // it to touch gate or sign-off tasks beyond "in_progress" — those stay
+      // with a human. This action just records what it did, worded as copilot.
+      return updateDeal(state, action.dealId, (d) => {
+        const t = d.tasks.find((x) => x.id === action.taskId);
+        if (!t) return d;
+        const tasks = d.tasks.map((x) =>
+          x.id === action.taskId ? { ...x, status: action.status } : x
+        );
+        return copilotLog({ ...d, tasks }, action.note);
+      });
+
+    case "copilotFlag":
+      // Copilot-created follow-ups are always plain tasks: never blocking, never
+      // requiring approval — the copilot can raise an issue but can't invent a
+      // gate or a sign-off. A human decides what those tasks become.
+      return updateDeal(state, action.dealId, (d) => {
+        const t: Task = {
+          id: uid(),
+          title: action.title,
+          stageId: d.stageId,
+          assigneeId: action.assigneeId,
+          dueDate: action.dueDate,
+          status: "todo",
+          blocking: false,
+          requiresApproval: false,
+          origin: "copilot",
+        };
+        return copilotLog(
+          { ...d, tasks: [...d.tasks, t] },
+          `flagged an issue and created task "${action.title}"`
+        );
+      });
+
+    case "copilotFinish":
+      return updateDeal(state, action.dealId, (d) => copilotLog(d, action.summary));
 
     default:
       return state;

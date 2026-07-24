@@ -10,7 +10,8 @@ import {
   stageIndex,
   Task,
 } from "./types";
-import { useStore } from "./store";
+import { COPILOT_ID, useStore } from "./store";
+import { Copilot } from "./Copilot";
 import {
   Avatar,
   AvatarStack,
@@ -25,7 +26,7 @@ import {
   toast,
 } from "./ui";
 
-type Tab = "overview" | "checklist" | "documents" | "comments" | "activity";
+type Tab = "overview" | "copilot" | "checklist" | "documents" | "comments" | "activity";
 
 const DOC_TYPES: DocType[] = ["Model", "Pitch Book", "Legal", "Diligence", "Memo", "Data"];
 
@@ -99,6 +100,7 @@ function TaskRow({ deal, task }: { deal: Deal; task: Task }) {
         <div className="task-title">
           {task.title}
           {task.blocking && <Badge kind="blocking">gate</Badge>}
+          {task.origin === "copilot" && <Badge kind="copilot-kind">copilot</Badge>}
         </div>
         <div className="task-meta">
           <span>{stage?.short ?? task.stageId}</span>
@@ -450,9 +452,14 @@ export function Workspace({
   const blockers = deal.tasks.filter((t) => t.stageId === deal.stageId && t.blocking && t.status !== "done");
   const canAdvance = idx >= 0 && idx < stages.length - 1 && blockers.length === 0;
   const unresolved = deal.comments.filter((c) => !c.resolved);
+  // Items the copilot must leave to a human: open gate tasks + pending sign-offs.
+  const awaitingYou =
+    blockers.length +
+    deal.tasks.filter((t) => t.status === "done" && t.requiresApproval && !t.approvedById).length;
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "overview", label: "Overview" },
+    { id: "copilot", label: "Copilot", count: awaitingYou },
     { id: "checklist", label: "Checklist", count: deal.tasks.filter((t) => t.status !== "done").length },
     { id: "documents", label: "Documents", count: deal.docs.length },
     { id: "comments", label: "Comments", count: unresolved.length },
@@ -631,6 +638,8 @@ export function Workspace({
         </div>
       )}
 
+      {tab === "copilot" && <Copilot deal={deal} onGoChecklist={() => setTab("checklist")} />}
+
       {tab === "checklist" && (
         <section className="panel">
           {deal.tasks.length === 0 ? (
@@ -761,13 +770,26 @@ export function Workspace({
       {tab === "activity" && (
         <section className="panel">
           {[...deal.activity].reverse().map((a) => {
+            const isCopilot = a.kind === "copilot" || a.actorId === COPILOT_ID;
             const actor = state.members.find((m) => m.id === a.actorId);
             return (
-              <div key={a.id} className={`activity-row ${a.kind === "override" ? "activity-override" : ""}`}>
-                {actor && <Avatar member={actor} size={22} />}
+              <div
+                key={a.id}
+                className={`activity-row ${a.kind === "override" ? "activity-override" : ""} ${
+                  isCopilot ? "activity-copilot" : ""
+                }`}
+              >
+                {isCopilot ? (
+                  <span className="copilot-mark" title="Deal Copilot" aria-hidden="true">
+                    ◆
+                  </span>
+                ) : (
+                  actor && <Avatar member={actor} size={22} />
+                )}
                 <span>
                   {a.kind === "override" && <span className="activity-badge">OVERRIDE</span>}
-                  <strong>{actor?.name}</strong> {a.text}
+                  {isCopilot && <span className="activity-badge copilot-badge">COPILOT</span>}
+                  <strong>{isCopilot ? "Copilot" : actor?.name}</strong> {a.text}
                 </span>
                 <span className="subtle activity-ts">{fmtDateTime(a.ts)}</span>
               </div>

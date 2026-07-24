@@ -41,6 +41,8 @@ const deals: Deal[] = [
       { id: "t2", title: "Normalize 3-yr historical financials", stageId: "modeling", assigneeId: "m5", dueDate: day(-2), status: "in_progress", blocking: true, requiresApproval: true },
       { id: "t3", title: "Build DCF with PPA sensitivity cases", stageId: "modeling", assigneeId: "m4", dueDate: day(3), status: "in_progress", blocking: true, requiresApproval: true },
       { id: "t4", title: "Comparable transactions screen", stageId: "modeling", assigneeId: "m5", dueDate: day(1), status: "done", blocking: false, requiresApproval: true },
+      { id: "t19", title: "Refresh trading comps with latest quarter", stageId: "modeling", assigneeId: "m5", dueDate: day(2), status: "todo", blocking: false, requiresApproval: false },
+      { id: "t20", title: "Assemble football-field valuation exhibit", stageId: "modeling", assigneeId: "m4", dueDate: day(3), status: "todo", blocking: false, requiresApproval: false },
       { id: "t5", title: "Draft valuation summary memo", stageId: "internal_review", assigneeId: "m4", dueDate: day(7), status: "todo", blocking: true, requiresApproval: true },
     ],
     docs: [
@@ -121,6 +123,8 @@ const deals: Deal[] = [
       { id: "t7", title: "Review co-packer agreements", stageId: "data_room", assigneeId: "m6", dueDate: day(2), status: "in_progress", blocking: true, requiresApproval: false },
       { id: "t8", title: "Extract monthly P&L by channel", stageId: "data_room", assigneeId: "m5", dueDate: day(-1), status: "in_progress", blocking: true, requiresApproval: true },
       { id: "t9", title: "Preliminary synergy hypothesis", stageId: "modeling", assigneeId: "m3", dueDate: day(9), status: "todo", blocking: false, requiresApproval: false },
+      { id: "t21", title: "Tag data room documents by workstream", stageId: "data_room", assigneeId: "m5", dueDate: day(1), status: "todo", blocking: false, requiresApproval: false },
+      { id: "t22", title: "Summarize management call notes", stageId: "data_room", assigneeId: "m3", dueDate: day(3), status: "todo", blocking: false, requiresApproval: false },
     ],
     docs: [
       {
@@ -173,6 +177,7 @@ const deals: Deal[] = [
       { id: "t10", title: "Finalize fundraising model", stageId: "modeling", assigneeId: "m4", dueDate: day(-8), status: "done", blocking: true, requiresApproval: true, approvedById: "m2" },
       { id: "t11", title: "MD review of investor deck", stageId: "internal_review", assigneeId: "m1", dueDate: day(-1), status: "in_progress", blocking: true, requiresApproval: false },
       { id: "t12", title: "Build investor target list (40 names)", stageId: "internal_review", assigneeId: "m4", dueDate: day(4), status: "done", blocking: false, requiresApproval: true },
+      { id: "t23", title: "Compile IC pre-read pack", stageId: "internal_review", assigneeId: "m4", dueDate: day(2), status: "todo", blocking: false, requiresApproval: false },
     ],
     docs: [
       {
@@ -230,6 +235,8 @@ const deals: Deal[] = [
       { id: "t13", title: "Respond to bidder A SPA mark-up", stageId: "negotiation", assigneeId: "m6", dueDate: day(2), status: "in_progress", blocking: true, requiresApproval: false },
       { id: "t14", title: "Working capital peg analysis", stageId: "negotiation", assigneeId: "m5", dueDate: day(-3), status: "done", blocking: true, requiresApproval: true, approvedById: "m3" },
       { id: "t15", title: "Closing checklist & CP tracker", stageId: "closing", assigneeId: "m6", dueDate: day(10), status: "todo", blocking: true, requiresApproval: false },
+      { id: "t24", title: "Prepare issues list for next negotiation session", stageId: "negotiation", assigneeId: "m5", dueDate: day(1), status: "todo", blocking: false, requiresApproval: false },
+      { id: "t25", title: "Update deal timeline for client update call", stageId: "negotiation", assigneeId: "m3", dueDate: day(2), status: "todo", blocking: false, requiresApproval: false },
     ],
     docs: [
       {
@@ -285,6 +292,7 @@ const deals: Deal[] = [
       { id: "t16", title: "Negotiate engagement letter terms", stageId: "nda", assigneeId: "m6", dueDate: day(4), status: "in_progress", blocking: true, requiresApproval: false },
       { id: "t17", title: "Draft NDA template for buyer outreach", stageId: "nda", assigneeId: "m6", dueDate: day(6), status: "todo", blocking: true, requiresApproval: false },
       { id: "t18", title: "Kick-off call with founder", stageId: "mandate", assigneeId: "m3", dueDate: day(-4), status: "done", blocking: true, requiresApproval: false },
+      { id: "t26", title: "Compile preliminary buyer long-list", stageId: "nda", assigneeId: "m5", dueDate: day(5), status: "todo", blocking: false, requiresApproval: false },
     ],
     docs: [
       {
